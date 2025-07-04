@@ -19,7 +19,7 @@ const Navbar = () => {
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Home</Link>
+            <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
             <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Services</Link>
             <Link to="/barbers" className="font-medium hover:text-barber-gold transition-colors">Barbers</Link>
             <Link to="/gallery" className="font-medium hover:text-barber-gold transition-colors">Gallery</Link>
@@ -68,7 +68,7 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden pt-4 pb-3 border-t mt-2 animate-fade-in">
             <div className="flex flex-col space-y-3">
-              <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Home</Link>
+              <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Beranda</Link>
               <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Services</Link>
               <Link to="/barbers" className="px-3 py-2 rounded-md hover:bg-gray-100">Barbers</Link>
               <Link to="/gallery" className="px-3 py-2 rounded-md hover:bg-gray-100">Gallery</Link>
@@ -79,11 +79,11 @@ const Navbar = () => {
                   <div className="flex flex-col space-y-3">
                     <Link to="/profile" className="px-3 py-2 rounded-md hover:bg-gray-100 flex items-center">
                       <User className="h-4 w-4 mr-2" />
-                      My Profile
+                      Profile saya
                     </Link>
                     <Link to="/booking">
                       <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
-                        Book Appointment
+                        Pesan Janji
                       </Button>
                     </Link>
                   </div>
@@ -94,7 +94,7 @@ const Navbar = () => {
                     </Link>
                     <Link to="/booking">
                       <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
-                        Book Appointment
+                        Pesan Janji
                       </Button>
                     </Link>
                   </div>

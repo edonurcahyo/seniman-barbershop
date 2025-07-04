@@ -17,8 +17,8 @@ const Login = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
-      title: "Login Successful",
-      description: "You have been successfully logged in.",
+      title: "Login Berhasil",
+      description: "Anda telah berhasil masuk ke akun Anda.",
     });
     // In a real app, you would handle authentication here
   };
@@ -26,8 +26,8 @@ const Login = () => {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
-      title: "Registration Successful",
-      description: "Your account has been created. You can now log in.",
+      title: "Registrasi Berhasil",
+      description: "Akun Anda telah berhasil dibuat. Silakan masuk.",
     });
     // In a real app, you would handle registration here
   };
@@ -48,7 +48,7 @@ const Login = () => {
               <TabsContent value="login">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center">Selamat Datang Kembali</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleLogin}>
@@ -58,7 +58,7 @@ const Login = () => {
                           <Input
                             id="email"
                             type="email"
-                            placeholder="name@example.com"
+                            placeholder="nama@example.com"
                             required
                           />
                         </div>
@@ -66,7 +66,7 @@ const Login = () => {
                           <div className="flex items-center justify-between">
                             <Label htmlFor="password">Password</Label>
                             <Link to="/forgot-password" className="text-sm text-barber-gold hover:underline">
-                              Forgot password?
+                              Lupa Password?
                             </Link>
                           </div>
                           <Input
@@ -87,7 +87,7 @@ const Login = () => {
                         <div className="w-full border-t border-gray-300"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                        <span className="px-2 bg-white text-gray-500">Atau lanjutkan dengan</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 w-full">
@@ -111,14 +111,14 @@ const Login = () => {
               <TabsContent value="register">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-center">Create an Account</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center">Buat akun baru</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleRegister}>
                       <div className="grid gap-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="grid gap-2">
-                            <Label htmlFor="firstName">First Name</Label>
+                            <Label htmlFor="firstName">Nama depan</Label>
                             <Input
                               id="firstName"
                               placeholder="Hendrikus"
@@ -126,7 +126,7 @@ const Login = () => {
                             />
                           </div>
                           <div className="grid gap-2">
-                            <Label htmlFor="lastName">Last Name</Label>
+                            <Label htmlFor="lastName">Nama belakang</Label>
                             <Input
                               id="lastName"
                               placeholder="Olmedo"
@@ -139,12 +139,12 @@ const Login = () => {
                           <Input
                             id="regEmail"
                             type="email"
-                            placeholder="name@example.com"
+                            placeholder="nama@example.com"
                             required
                           />
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="phone">Phone Number</Label>
+                          <Label htmlFor="phone">No HP</Label>
                           <Input
                             id="phone"
                             type="tel"
@@ -176,13 +176,13 @@ const Login = () => {
                             required
                           />
                           <Label htmlFor="terms" className="text-sm text-gray-500">
-                            I agree to the{" "}
+                            Saya setuju dengan{" "}
                             <Link to="/terms" className="text-barber-gold hover:underline">
-                              Terms of Service
+                              Syarat Layanan
                             </Link>{" "}
-                            and{" "}
+                            dan{" "}
                             <Link to="/privacy" className="text-barber-gold hover:underline">
-                              Privacy Policy
+                              Kebijakan Privasi
                             </Link>
                           </Label>
                         </div>

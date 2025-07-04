@@ -7,23 +7,23 @@ const BarbersSection = () => {
   const barbers = [
     // {
     //   id: 1,
-    //   name: 'Alex Rodriguez',
+    //   name: 'Cahya Nugraha',
     //   position: 'Junior Barber',
-    //   experience: '2 years',
+    //   experience: '2 Tahun',
     //   image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
     // },
     {
       id: 2,
-      name: 'David Smith',
+      name: 'Jason Susanto',
       position: 'Senior Barber',
-      experience: '5 years',
+      experience: '5 Tahun',
       image: 'https://images.unsplash.com/photo-1567894340315-735d7c361db0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
     },
     {
       id: 3,
-      name: 'Michael Johnson',
+      name: 'Ahmad Khalish',
       position: 'Style Specialist',
-      experience: '3 years',
+      experience: '3 Tahun',
       image: 'https://images.unsplash.com/photo-1596513058260-ac19435ec75a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
     }
   ];  
@@ -32,9 +32,10 @@ const BarbersSection = () => {
     <section className="py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 section-title inline-block">Meet Our Barbers</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 section-title inline-block">Lihat Barber Kami</h2>
           <p className="text-gray-600 mt-6 max-w-2xl mx-auto">
-            Our team of skilled professionals is dedicated to providing you with the best grooming experience.
+            Tim kami terdiri dari barber berpengalaman yang siap membantu Anda menemukan gaya yang sempurna. 
+            Setiap barber memiliki keahlian unik dan dedikasi untuk memberikan layanan terbaik.
           </p>
         </div>
 

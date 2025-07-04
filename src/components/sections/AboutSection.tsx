@@ -9,16 +9,18 @@ const AboutSection = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">About Barbershop Seniman</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Tentang Barbershop Seniman</h2>
             <p className="text-gray-600 mb-6">
-            Barbershop Seniman is a men’s grooming service located at Jl. Rungkut Madya No. 29, Medokan Ayu, Surabaya. Known for blending style and artistry into every haircut, Barbershop Seniman offers not just grooming services, but a satisfying and modern grooming experience for every customer.
+              Di Barbershop Seniman, kami menggabungkan seni tradisional dengan teknik modern untuk memberikan pengalaman grooming yang tak tertandingi. 
+              Dengan tim barber berpengalaman, kami berkomitmen untuk membantu Anda menemukan gaya yang sempurna, menciptakan penampilan yang tidak hanya menarik tetapi juga mencerminkan kepribadian Anda.
             </p>
             <p className="text-gray-600 mb-6">
-              We pride ourselves on creating a welcoming atmosphere where clients can relax and enjoy premium service. From classic cuts to modern styles, hot towel shaves to beard grooming, we offer a comprehensive range of services to meet all your grooming needs.
+              Kami percaya bahwa setiap potongan rambut adalah karya seni. Dari potongan klasik hingga gaya kontemporer, kami menggunakan teknik terbaik dan produk berkualitas tinggi untuk memastikan Anda mendapatkan hasil yang memuaskan. 
+              Kunjungi kami dan rasakan perbedaan layanan yang dipersonalisasi dan perhatian terhadap detail yang kami tawarkan.
             </p>
             <Link to="/about">
               <Button variant="outline" className="border-barber-brown text-barber-brown hover:bg-barber-brown hover:text-white">
-                Learn More About Us
+                Pelajari Lebih Lanjut
               </Button>
             </Link>
           </div>

@@ -24,12 +24,12 @@ const BarberCard = ({ name, position, image, experience }: BarberCardProps) => {
       <CardContent className="p-5 text-center">
         <h3 className="text-xl font-bold mb-1">{name}</h3>
         <p className="text-barber-gold font-medium">{position}</p>
-        <p className="text-sm text-muted-foreground mt-2">{experience} of experience</p>
+        <p className="text-sm text-muted-foreground mt-2">{experience} pengalaman</p>
       </CardContent>
       <CardFooter className="p-5 pt-0">
         <Link to="/booking" className="w-full">
           <Button className="w-full bg-barber-brown hover:bg-barber-brown/90">
-            Book with {name.split(' ')[0]}
+            Pesan dengan {name.split(' ')[0]}
           </Button>
         </Link>
       </CardFooter>
