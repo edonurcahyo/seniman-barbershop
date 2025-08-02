@@ -5,26 +5,26 @@ import BarberCard from '@/components/BarberCard';
 const BarbersSection = () => {
   // Sample data - in a real app this would come from an API
   const barbers = [
-    // {
-    //   id: 1,
-    //   name: 'Cahya Nugraha',
-    //   position: 'Junior Barber',
-    //   experience: '2 Tahun',
-    //   image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-    // },
+    {
+      id: 1,
+      name: 'Ilham G',
+      position: 'Junior Barber',
+      experience: '2 Tahun',
+      image: '/BARBER.png'
+    },
     {
       id: 2,
       name: 'Jason Susanto',
       position: 'Senior Barber',
       experience: '5 Tahun',
-      image: 'https://images.unsplash.com/photo-1567894340315-735d7c361db0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+      image: '/BARBER.png'
     },
     {
       id: 3,
       name: 'Ahmad Khalish',
       position: 'Style Specialist',
       experience: '3 Tahun',
-      image: 'https://images.unsplash.com/photo-1596513058260-ac19435ec75a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+      image: '/BARBER.png'
     }
   ];  
 

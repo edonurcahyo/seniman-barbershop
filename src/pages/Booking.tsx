@@ -25,9 +25,9 @@ const Booking = () => {
   const [step, setStep] = useState(1);
 
   const barbers = [
-    // { id: '1', name: 'Alex Rodriguez', image: 'https://images.unsplash.com/photo-1565022536102-f7645d84354a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&q=80' },
-    { id: '2', name: 'Jason Susanto', image: 'https://images.unsplash.com/photo-1567894340315-735d7c361db0?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80' },
-    { id: '3', name: 'Ahmad Khalish', image: 'https://images.unsplash.com/photo-1596513058260-ac19435ec75a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    { id: '1', name: 'Jason Susanto', image: '/BARBER.png' },
+    { id: '2', name: 'Ahmad Khalish', image: '/BARBER.png' },
+    { id: '3', name: 'Ilham G', image: '/BARBER.png' },
   ];
 
   const services = [
@@ -38,7 +38,6 @@ const Booking = () => {
   ];
 
   const timeSlots = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
     '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
   ];
