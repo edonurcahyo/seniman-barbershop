@@ -10,8 +10,8 @@ const Footer = () => {
           {/* Logo & Tentang */}
           <div className="space-y-4">
             <Link to="/" className="inline-block">
-              <span className="text-2xl font-serif font-bold text-white">Barbershop</span>
-              <span className="ml-1 text-2xl font-serif font-light text-barber-gold">Seniman</span>
+              <span className="text-2xl font-serif font-light text-barber-gold">Seniman</span>
+              <span className="ml-1 text-2xl font-serif font-bold text-white">Barbershop</span>
             </Link>
             <p className="text-gray-300">
               Pengalaman grooming premium untuk pria modern. Barber berpengalaman, layanan berkualitas.
@@ -38,7 +38,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li><Link to="/services" className="text-gray-300 hover:text-barber-gold transition-colors">Layanan Kami</Link></li>
               <li><Link to="/barbers" className="text-gray-300 hover:text-barber-gold transition-colors">Tim Barber</Link></li>
-              <li><Link to="/gallery" className="text-gray-300 hover:text-barber-gold transition-colors">Galeri</Link></li>
+              {/* <li><Link to="/gallery" className="text-gray-300 hover:text-barber-gold transition-colors">Galeri</Link></li> */}
               <li><Link to="/booking" className="text-gray-300 hover:text-barber-gold transition-colors">Pesan Janji</Link></li>
             </ul>
           </div>

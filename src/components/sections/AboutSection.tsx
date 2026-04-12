@@ -9,7 +9,7 @@ const AboutSection = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Tentang Barbershop Seniman</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Tentang Seniman Barbershop</h2>
             <p className="text-gray-600 mb-6">
               Di Barbershop Seniman, kami menggabungkan seni tradisional dengan teknik modern untuk memberikan pengalaman grooming yang tak tertandingi. 
               Dengan tim barber berpengalaman, kami berkomitmen untuk membantu Anda menemukan gaya yang sempurna, menciptakan penampilan yang tidak hanya menarik tetapi juga mencerminkan kepribadian Anda.

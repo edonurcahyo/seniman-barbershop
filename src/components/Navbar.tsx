@@ -13,17 +13,17 @@ const Navbar = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           <Link to="/" className="flex items-center">
-            <span className="text-2xl font-serif font-bold text-barber-brown">Barbershop</span>
-            <span className="ml-1 text-2xl font-serif font-light text-barber-gold">Seniman</span>
+            <span className="text-2xl font-serif font-light text-barber-gold">Seniman</span>
+            <span className="ml-1 text-2xl font-serif font-bold text-barber-brown">Barbershop</span>
           </Link>
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
-            <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Services</Link>
-            <Link to="/barbers" className="font-medium hover:text-barber-gold transition-colors">Barbers</Link>
-            <Link to="/gallery" className="font-medium hover:text-barber-gold transition-colors">Gallery</Link>
-            <Link to="/contact" className="font-medium hover:text-barber-gold transition-colors">Contact</Link>
+            <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Layanan</Link>
+            {/* <Link to="/barbers" className="font-medium hover:text-barber-gold transition-colors">Barbers</Link> */}
+            {/* <Link to="/gallery" className="font-medium hover:text-barber-gold transition-colors">Gallery</Link> */}
+            <Link to="/contact" className="font-medium hover:text-barber-gold transition-colors">Kontak</Link>
             
             {isLoggedIn ? (
               <div className="flex items-center space-x-4">
@@ -34,7 +34,7 @@ const Navbar = () => {
                 </Link>
                 <Link to="/booking">
                   <Button className="bg-barber-gold hover:bg-barber-gold/90 text-black">
-                    Book Now
+                    Pesan Sekarang
                   </Button>
                 </Link>
               </div>
@@ -45,7 +45,7 @@ const Navbar = () => {
                 </Link>
                 <Link to="/booking">
                   <Button className="bg-barber-gold hover:bg-barber-gold/90 text-black">
-                    Book Now
+                    Pesan Sekarang
                   </Button>
                 </Link>
               </div>
@@ -69,10 +69,10 @@ const Navbar = () => {
           <div className="md:hidden pt-4 pb-3 border-t mt-2 animate-fade-in">
             <div className="flex flex-col space-y-3">
               <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Beranda</Link>
-              <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Services</Link>
-              <Link to="/barbers" className="px-3 py-2 rounded-md hover:bg-gray-100">Barbers</Link>
-              <Link to="/gallery" className="px-3 py-2 rounded-md hover:bg-gray-100">Gallery</Link>
-              <Link to="/contact" className="px-3 py-2 rounded-md hover:bg-gray-100">Contact</Link>
+              <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Layanan</Link>
+              {/* <Link to="/barbers" className="px-3 py-2 rounded-md hover:bg-gray-100">Barbers</Link> */}
+              {/* <Link to="/gallery" className="px-3 py-2 rounded-md hover:bg-gray-100">Gallery</Link> */}
+              <Link to="/contact" className="px-3 py-2 rounded-md hover:bg-gray-100">Kontak</Link>
               
               <div className="pt-2 border-t">
                 {isLoggedIn ? (

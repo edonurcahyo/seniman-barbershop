@@ -14,7 +14,7 @@ const CTASection = () => {
         </p>
         <Link to="/booking">
           <Button className="px-8 py-3 text-lg bg-barber-gold hover:bg-barber-gold/90 text-black">
-            Book Now
+            Pesan Sekarang
           </Button>
         </Link>
       </div>
