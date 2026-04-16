@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, CreditCard, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { CalendarIcon, CreditCard, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -22,6 +22,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
+
+// Interface untuk data reservasi
+interface ReservationData {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice: string;
+  serviceDuration: string;
+  date: Date;
+  time: string;
+  paymentMethod: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  notes: string;
+  status: 'pending' | 'paid' | 'cancelled';
+  createdAt: Date;
+  paymentDueDate?: Date;
+}
 
 const Booking = () => {
   const { toast } = useToast();
@@ -32,6 +56,19 @@ const Booking = () => {
   const [step, setStep] = useState(1);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+  const [showPayLaterDialog, setShowPayLaterDialog] = useState(false);
+  const [savedReservation, setSavedReservation] = useState<ReservationData | null>(null);
+  
+  // Form data
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    notes: ''
+  });
 
   const services = [
     { id: '1', name: 'Potong Rambut', price: 'Rp. 40.000', duration: '30 menit' },
@@ -40,9 +77,12 @@ const Booking = () => {
     { id: '5', name: 'Warna Rambut', price: 'Rp. 100.000', duration: '60 menit' },
   ];
 
+  // Jam operasional dari 10:00 sampai 22:00
   const timeSlots = [
-    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+    '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', 
+    '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
+    '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
   ];
 
   const paymentMethods = [
@@ -61,13 +101,6 @@ const Booking = () => {
       color: 'text-blue-600'
     },
     { 
-      id: 'card', 
-      name: 'Kartu Kredit/Debit', 
-      description: 'Visa, Mastercard, JCB', 
-      icon: CreditCard,
-      color: 'text-purple-600'
-    },
-    { 
       id: 'qris', 
       name: 'QRIS', 
       description: 'Scan QR dengan e-wallet atau m-banking', 
@@ -75,6 +108,38 @@ const Booking = () => {
       color: 'text-orange-600'
     },
   ];
+
+  // Data rekening bank
+  const bankAccounts = [
+    { bank: 'BCA', accountNumber: '1234567890', accountName: 'Barber Shop Official' },
+    { bank: 'Mandiri', accountNumber: '9876543210', accountName: 'Barber Shop Official' },
+    { bank: 'BNI', accountNumber: '5551234567', accountName: 'Barber Shop Official' },
+    { bank: 'BRI', accountNumber: '7778889990', accountName: 'Barber Shop Official' }
+  ];
+
+  // Generate unique ID untuk reservasi
+  const generateReservationId = () => {
+    return 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+  };
+
+  // Simpan data reservasi ke localStorage
+  const saveReservationToLocal = (reservationData: ReservationData) => {
+    const existingReservations = localStorage.getItem('barber_reservations');
+    const reservations = existingReservations ? JSON.parse(existingReservations) : [];
+    reservations.push(reservationData);
+    localStorage.setItem('barber_reservations', JSON.stringify(reservations));
+    
+    // Simpan juga sebagai reservasi terbaru
+    localStorage.setItem('last_reservation', JSON.stringify(reservationData));
+  };
+
+  // Handle input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.id]: e.target.value
+    });
+  };
 
   const nextStep = () => {
     if (step === 1 && !selectedService) {
@@ -103,17 +168,137 @@ const Booking = () => {
     }
   };
 
-  const handleBookAppointment = (e: React.FormEvent) => {
+  // Simpan reservasi (Bayar Nanti)
+  const handleSaveReservation = () => {
+    // Validasi data diri
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Harap lengkapi semua data diri terlebih dahulu" 
+      });
+      return;
+    }
+
+    const selectedServiceData = services.find(s => s.id === selectedService);
+    
+    // Hitung tanggal jatuh tempo pembayaran (24 jam sebelum appointment)
+    const appointmentDate = new Date(date!);
+    const [hour, minute] = selectedTime!.split(':');
+    appointmentDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    
+    const paymentDueDate = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000);
+
+    const reservationData: ReservationData = {
+      id: generateReservationId(),
+      serviceId: selectedService!,
+      serviceName: selectedServiceData?.name || '',
+      servicePrice: selectedServiceData?.price || '',
+      serviceDuration: selectedServiceData?.duration || '',
+      date: date!,
+      time: selectedTime!,
+      paymentMethod: selectedPayment!,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      notes: formData.notes,
+      status: 'pending',
+      createdAt: new Date(),
+      paymentDueDate: paymentDueDate
+    };
+
+    saveReservationToLocal(reservationData);
+    setSavedReservation(reservationData);
+    setShowPayLaterDialog(true);
+    
+    toast({
+      title: "Reservasi Disimpan! 📝",
+      description: "Data reservasi Anda telah kami simpan. Silakan selesaikan pembayaran sebelum batas waktu yang ditentukan.",
+    });
+  };
+
+  // Lanjut ke pembayaran (Bayar Sekarang)
+  const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validasi data diri
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Harap lengkapi semua data diri terlebih dahulu" 
+      });
+      return;
+    }
+    
     setShowPaymentDialog(true);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({ variant: "destructive", title: "Error", description: "Harap upload file gambar (JPG, PNG, dll)" });
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ variant: "destructive", title: "Error", description: "Ukuran file maksimal 5MB" });
+        return;
+      }
+      
+      setPaymentProof(file);
+      const previewUrl = URL.createObjectURL(file);
+      setPaymentProofPreview(previewUrl);
+    }
+  };
+
+  const removeFile = () => {
+    if (paymentProofPreview) {
+      URL.revokeObjectURL(paymentProofPreview);
+    }
+    setPaymentProof(null);
+    setPaymentProofPreview(null);
+  };
+
   const handlePaymentConfirm = () => {
+    if (selectedPayment !== 'cash' && !paymentProof) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Harap upload bukti pembayaran terlebih dahulu" 
+      });
+      return;
+    }
+
+    // Simpan reservasi dengan status paid
+    const selectedServiceData = services.find(s => s.id === selectedService);
+    const reservationData: ReservationData = {
+      id: generateReservationId(),
+      serviceId: selectedService!,
+      serviceName: selectedServiceData?.name || '',
+      servicePrice: selectedServiceData?.price || '',
+      serviceDuration: selectedServiceData?.duration || '',
+      date: date!,
+      time: selectedTime!,
+      paymentMethod: selectedPayment!,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      notes: formData.notes,
+      status: 'paid',
+      createdAt: new Date()
+    };
+
+    saveReservationToLocal(reservationData);
+    
     setShowPaymentDialog(false);
     setPaymentConfirmed(true);
     
     toast({
-      title: "Pemesanan Berhasil! 🎉",
+      title: "Pembayaran Berhasil! 🎉",
       description: "Janji temu Anda berhasil dipesan. Silakan cek email untuk detail lebih lanjut.",
     });
   };
@@ -122,7 +307,14 @@ const Booking = () => {
   const getSelectedPaymentMethod = () => paymentMethods.find(method => method.id === selectedPayment);
   const selectedServiceData = getSelectedService();
 
-  const totalPrice = selectedServiceData ? parseInt(selectedServiceData.price.replace(/[^0-9]/g, '')) : 0;
+  // Format tanggal untuk display
+  const formatDate = (date: Date) => {
+    return format(date, "dd MMMM yyyy");
+  };
+
+  const formatDateTime = (date: Date) => {
+    return format(date, "dd MMMM yyyy, HH:mm");
+  };
 
   return (
     <>
@@ -134,7 +326,7 @@ const Booking = () => {
           <p className="text-center text-gray-600 mb-12">Ikuti langkah-langkah di bawah ini untuk menjadwalkan kunjungan Anda</p>
 
           <div className="max-w-4xl mx-auto">
-            {/* Progress Steps - Sekarang 4 steps */}
+            {/* Progress Steps */}
             <div className="flex justify-center mb-10">
               <div className="relative flex items-center w-full max-w-3xl">
                 {[1, 2, 3, 4].map((stepNumber) => (
@@ -205,7 +397,7 @@ const Booking = () => {
                         </Popover>
                       </div>
                       <div>
-                        <Label className="block mb-2">Pilih Waktu</Label>
+                        <Label className="block mb-2">Pilih Waktu (10:00 - 22:00)</Label>
                         <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
                           {timeSlots.map((time) => (
                             <Button 
@@ -310,57 +502,102 @@ const Booking = () => {
                       </div>
 
                       {/* Form Data Diri */}
-                      <form onSubmit={handleBookAppointment}>
-                        <div className="space-y-4">
-                          <h3 className="font-semibold text-lg flex items-center">
-                            <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
-                            Data Diri
-                          </h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="firstName">Nama Depan</Label>
-                              <Input id="firstName" required className="mt-1" />
-                            </div>
-                            <div>
-                              <Label htmlFor="lastName">Nama Belakang</Label>
-                              <Input id="lastName" required className="mt-1" />
-                            </div>
-                          </div>
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-lg flex items-center">
+                          <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
+                          Data Diri
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" required className="mt-1" />
-                          </div>
-                          <div>
-                            <Label htmlFor="phone">Nomor Telepon</Label>
-                            <Input id="phone" type="tel" required className="mt-1" />
-                          </div>
-                          <div>
-                            <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
-                            <Textarea 
-                              id="notes" 
-                              placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
-                              className="mt-1"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input 
-                              type="checkbox" 
-                              id="terms" 
-                              className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
+                            <Label htmlFor="firstName">Nama Depan *</Label>
+                            <Input 
+                              id="firstName" 
+                              value={formData.firstName}
+                              onChange={handleInputChange}
                               required 
+                              className="mt-1" 
                             />
-                            <Label htmlFor="terms" className="text-sm text-gray-500">
-                              Saya setuju dengan kebijakan pembatalan. Saya memahami bahwa pembatalan harus dilakukan minimal 24 jam sebelumnya.
-                            </Label>
                           </div>
+                          <div>
+                            <Label htmlFor="lastName">Nama Belakang *</Label>
+                            <Input 
+                              id="lastName" 
+                              value={formData.lastName}
+                              onChange={handleInputChange}
+                              required 
+                              className="mt-1" 
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="email">Email *</Label>
+                          <Input 
+                            id="email" 
+                            type="email" 
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            required 
+                            className="mt-1" 
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="phone">Nomor Telepon *</Label>
+                          <Input 
+                            id="phone" 
+                            type="tel" 
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            required 
+                            className="mt-1" 
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
+                          <Textarea 
+                            id="notes" 
+                            value={formData.notes}
+                            onChange={handleInputChange}
+                            placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="checkbox" 
+                            id="terms" 
+                            className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
+                            required 
+                          />
+                          <Label htmlFor="terms" className="text-sm text-gray-500">
+                            Saya setuju dengan kebijakan pembatalan. Saya memahami bahwa pembatalan harus dilakukan minimal 24 jam sebelumnya.
+                          </Label>
+                        </div>
+
+                        {/* Tombol Aksi: Bayar Sekarang atau Simpan Reservasi */}
+                        <div className="flex gap-4 mt-6">
                           <Button 
-                            type="submit" 
-                            className="w-full mt-4 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                            onClick={handleProceedToPayment}
+                            className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
                           >
-                            Lanjutkan ke Pembayaran
+                            Bayar Sekarang
+                          </Button>
+                          <Button 
+                            onClick={handleSaveReservation}
+                            variant="outline"
+                            className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            Bayar Nanti
                           </Button>
                         </div>
-                      </form>
+                        
+                        <Alert className="bg-blue-50 border-blue-200">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <AlertDescription className="text-xs text-blue-700">
+                            Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
                     </div>
                   </>
                 )}
@@ -389,9 +626,9 @@ const Booking = () => {
         </div>
       </div>
 
-      {/* Dialog Konfirmasi Pembayaran */}
+      {/* Dialog Konfirmasi Pembayaran (Bayar Sekarang) */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">Konfirmasi Pembayaran</DialogTitle>
             <DialogDescription className="text-center">
@@ -425,22 +662,38 @@ const Booking = () => {
               </div>
             </div>
 
-            {/* Informasi Tambahan berdasarkan metode pembayaran */}
+            {/* Informasi Pembayaran berdasarkan metode */}
             {selectedPayment === 'transfer' && (
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="font-medium text-blue-800 mb-2">Informasi Transfer Bank:</p>
-                <p className="text-sm text-blue-600">Bank BCA: 1234567890</p>
-                <p className="text-sm text-blue-600">a.n. Barber Shop</p>
+                <p className="font-medium text-blue-800 mb-3">Informasi Transfer Bank:</p>
+                <div className="space-y-3">
+                  {bankAccounts.map((bank, index) => (
+                    <div key={index} className="bg-white p-3 rounded-md">
+                      <p className="font-semibold text-blue-800">{bank.bank}</p>
+                      <p className="text-sm text-gray-600">No. Rekening: <span className="font-mono font-bold">{bank.accountNumber}</span></p>
+                      <p className="text-sm text-gray-600">a.n. {bank.accountName}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-blue-600 mt-2">
+                    * Silakan transfer sesuai dengan total yang harus dibayar. Sertakan kode booking sebagai referensi.
+                  </p>
+                </div>
               </div>
             )}
 
             {selectedPayment === 'qris' && (
               <div className="bg-orange-50 p-4 rounded-lg text-center">
                 <p className="font-medium text-orange-800 mb-2">Scan QRIS</p>
-                <div className="w-48 h-48 bg-gray-300 mx-auto mb-2 flex items-center justify-center border-2 border-dashed border-orange-300">
-                  <span className="text-gray-500">QR Code</span>
+                <div className="flex justify-center mb-2">
+                  <div className="w-56 h-56 bg-white rounded-xl shadow-lg flex items-center justify-center border-2 border-orange-200">
+                    <div className="text-center">
+                      <QrCode className="h-40 w-40 text-orange-600 mx-auto" />
+                      <p className="text-xs text-gray-500 mt-2">QRIS Code</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-orange-600">Scan menggunakan aplikasi e-wallet atau m-banking Anda</p>
+                <p className="text-sm text-orange-600 mb-2">Scan menggunakan aplikasi e-wallet atau m-banking Anda</p>
+                <p className="text-xs text-orange-500">Nominal: {selectedServiceData?.price}</p>
               </div>
             )}
 
@@ -449,6 +702,46 @@ const Booking = () => {
                 <p className="text-center text-green-800">
                   Bayar tunai saat Anda tiba di tempat kami
                 </p>
+              </div>
+            )}
+
+            {/* Upload Bukti Pembayaran untuk non-tunai */}
+            {(selectedPayment === 'transfer' || selectedPayment === 'qris') && (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <Label className="block mb-2 font-medium">Upload Bukti Pembayaran</Label>
+                {!paymentProofPreview ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <input
+                      type="file"
+                      id="payment-proof"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="payment-proof"
+                      className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500">Klik untuk upload bukti transfer/QRIS</p>
+                      <p className="text-xs text-gray-400">Format: JPG, PNG (Max 5MB)</p>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img 
+                      src={paymentProofPreview} 
+                      alt="Bukti Pembayaran" 
+                      className="w-full h-auto rounded-lg border"
+                    />
+                    <button
+                      onClick={removeFile}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -467,16 +760,18 @@ const Booking = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Sukses */}
+      {/* Dialog Sukses Bayar Sekarang */}
       <Dialog open={paymentConfirmed} onOpenChange={setPaymentConfirmed}>
         <DialogContent className="sm:max-w-md">
           <div className="text-center py-6">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
-            <DialogTitle className="text-2xl font-bold mb-2">Pemesanan Berhasil!</DialogTitle>
+            <DialogTitle className="text-2xl font-bold mb-2">Pembayaran Berhasil!</DialogTitle>
             <DialogDescription className="mb-6">
-              Terima kasih telah memesan di Barber Shop kami. Kami akan mengirimkan konfirmasi ke email Anda.
+              Terima kasih telah memesan di Barber Shop kami. 
+              {selectedPayment !== 'cash' && " Bukti pembayaran Anda akan kami verifikasi."}
+              Kami akan mengirimkan konfirmasi ke email Anda.
             </DialogDescription>
             <Button 
               onClick={() => window.location.href = '/'}
@@ -484,6 +779,62 @@ const Booking = () => {
             >
               Kembali ke Beranda
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Sukses Bayar Nanti */}
+      <Dialog open={showPayLaterDialog} onOpenChange={setShowPayLaterDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="h-10 w-10 text-blue-600" />
+            </div>
+            <DialogTitle className="text-2xl font-bold mb-2">Reservasi Disimpan!</DialogTitle>
+            <DialogDescription className="mb-4">
+              Data reservasi Anda telah berhasil disimpan.
+            </DialogDescription>
+            
+            {savedReservation && (
+              <div className="bg-gray-50 p-4 rounded-lg text-left mb-6">
+                <p className="text-sm font-semibold mb-2">Kode Reservasi:</p>
+                <p className="text-lg font-bold text-barber-gold mb-3">{savedReservation.id}</p>
+                
+                <p className="text-sm font-semibold mb-1">Detail Reservasi:</p>
+                <div className="space-y-1 text-sm">
+                  <p>📅 {formatDate(savedReservation.date)} - {savedReservation.time}</p>
+                  <p>💇 {savedReservation.serviceName}</p>
+                  <p>💰 {savedReservation.servicePrice}</p>
+                  {savedReservation.paymentDueDate && (
+                    <p className="text-orange-600 mt-2">
+                      ⚠️ Batas waktu pembayaran: {formatDateTime(savedReservation.paymentDueDate)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              <Button 
+                onClick={() => {
+                  setShowPayLaterDialog(false);
+                  window.location.href = '/';
+                }}
+                className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black"
+              >
+                Kembali ke Beranda
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowPayLaterDialog(false);
+                  setShowPaymentDialog(true);
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Lanjutkan Pembayaran Sekarang
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
