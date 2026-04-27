@@ -1,6 +1,6 @@
-// Customer.tsx - Fixed imports
+// Customer.tsx - Updated with real data from localStorage
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Calendar, 
   Users, 
@@ -38,159 +39,178 @@ import {
   Home,
   Scissors as ScissorsIcon,
   CalendarDays,
-  Store
+  Store,
+  Upload,
+  X
 } from 'lucide-react';
 
+// Interface untuk data reservasi
+interface ReservationData {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice: string;
+  serviceDuration: string;
+  date: Date;
+  time: string;
+  paymentMethod: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  notes: string;
+  status: 'pending' | 'paid' | 'cancelled';
+  createdAt: Date;
+  paymentDueDate?: Date;
+  paymentProof?: string;
+}
+
 const Customer = () => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('reservations');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationData | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<ReservationData[]>([]);
+  const [customerEmail, setCustomerEmail] = useState('');
 
-  // Mock data for current customer
-  const customerProfile = {
-    id: 1,
-    name: 'Hendrikus Olmedo',
-    email: 'hendrikus@email.com',
-    phone: '(555) 123-4567',
-    address: 'Jl. Contoh No. 123, Jakarta Selatan',
-    joinDate: '2023-06-15',
-    totalVisits: 8,
-    totalSpent: 420000,
-    favoriteService: 'Potong Rambut Klasik'
+  // Data rekening bank
+  const bankAccounts = [
+    { bank: 'BCA', accountNumber: '1234567890', accountName: 'Barber Shop Official' },
+    { bank: 'Mandiri', accountNumber: '9876543210', accountName: 'Barber Shop Official' },
+    { bank: 'BNI', accountNumber: '5551234567', accountName: 'Barber Shop Official' },
+    { bank: 'BRI', accountNumber: '7778889990', accountName: 'Barber Shop Official' }
+  ];
+
+  // Load customer data dari localStorage
+  useEffect(() => {
+    loadCustomerData();
+    // Coba ambil email customer dari localStorage atau prompt
+    const savedEmail = localStorage.getItem('customer_email');
+    if (savedEmail) {
+      setCustomerEmail(savedEmail);
+    } else {
+      // Untuk demo, kita bisa menggunakan email dari reservasi terakhir
+      const lastReservation = localStorage.getItem('last_reservation');
+      if (lastReservation) {
+        const reservation = JSON.parse(lastReservation);
+        setCustomerEmail(reservation.email);
+        localStorage.setItem('customer_email', reservation.email);
+      }
+    }
+  }, []);
+
+  const loadCustomerData = () => {
+    const existingReservations = localStorage.getItem('barber_reservations');
+    if (existingReservations) {
+      const allReservations = JSON.parse(existingReservations);
+      // Filter berdasarkan email customer yang login
+      const savedEmail = localStorage.getItem('customer_email');
+      if (savedEmail) {
+        const customerReservations = allReservations.filter((res: ReservationData) => res.email === savedEmail);
+        setReservations(customerReservations);
+      } else {
+        setReservations(allReservations);
+      }
+    }
   };
 
-  // Enhanced reservation data for customer
-  const customerReservations = [
-    { 
-      id: 1, 
-      customer: 'Hendrikus Olmedo', 
-      service: 'Potong Rambut Klasik', 
-      time: '10:00', 
-      date: '2024-01-15',
-      status: 'selesai',
-      paymentMethod: 'transfer',
-      paymentStatus: 'lunas',
-      amount: 40000,
-      barber: 'John Barber',
-      duration: '30 menit',
-      notes: 'Potong agak pendek',
-      cancellationReason: null,
-      createdAt: '2024-01-10 08:30:00'
-    },
-    { 
-      id: 2, 
-      customer: 'Hendrikus Olmedo', 
-      service: 'Rapihkan Jenggot', 
-      time: '11:30', 
-      date: '2024-01-20',
-      status: 'dikonfirmasi',
-      paymentMethod: 'cash',
-      paymentStatus: 'pending',
-      amount: 20000,
-      barber: 'Mike Barber',
-      duration: '20 menit',
-      notes: 'Rapihkan bagian samping',
-      cancellationReason: null,
-      createdAt: '2024-01-18 14:15:00'
-    },
-    { 
-      id: 3, 
-      customer: 'Hendrikus Olmedo', 
-      service: 'Layanan Lengkap', 
-      time: '14:00', 
-      date: '2024-02-01',
-      status: 'menunggu',
-      paymentMethod: 'qris',
-      paymentStatus: 'lunas',
-      amount: 50000,
-      barber: 'John Barber',
-      duration: '60 menit',
-      notes: 'Mau model rambut undercut',
-      cancellationReason: null,
-      createdAt: '2024-01-25 09:45:00'
-    },
-    { 
-      id: 4, 
-      customer: 'Hendrikus Olmedo', 
-      service: 'Potong & Jenggot', 
-      time: '16:00', 
-      date: '2024-01-10',
-      status: 'selesai',
-      paymentMethod: 'transfer',
-      paymentStatus: 'lunas',
-      amount: 50000,
-      barber: 'Sarah Barber',
-      duration: '45 menit',
-      notes: 'Potong seperti biasa',
-      cancellationReason: null,
-      createdAt: '2024-01-05 11:20:00'
-    },
-    { 
-      id: 5, 
-      customer: 'Hendrikus Olmedo', 
-      service: 'Warna Rambut', 
-      time: '13:00', 
-      date: '2024-01-25',
-      status: 'dibatalkan',
-      paymentMethod: 'card',
-      paymentStatus: 'refund',
-      amount: 100000,
-      barber: 'Mike Barber',
-      duration: '60 menit',
-      notes: 'Warna coklat tua',
-      cancellationReason: 'Pelanggan membatalkan karena sakit',
-      createdAt: '2024-01-20 16:30:00'
-    },
-  ];
+  // Customer profile dari data reservasi
+  const getCustomerProfile = () => {
+    if (reservations.length === 0) {
+      return {
+        name: 'Customer',
+        email: customerEmail || 'customer@email.com',
+        phone: '-',
+        joinDate: new Date().toISOString(),
+        totalVisits: 0,
+        totalSpent: 0,
+        favoriteService: '-'
+      };
+    }
+
+    const firstReservation = reservations[0];
+    const completedReservations = reservations.filter(r => r.status === 'paid');
+    const totalSpent = completedReservations.reduce((sum, r) => {
+      const price = parseInt(r.servicePrice.replace(/[^0-9]/g, ''));
+      return sum + price;
+    }, 0);
+
+    // Hitung layanan favorit
+    const serviceCount: { [key: string]: number } = {};
+    reservations.forEach(r => {
+      serviceCount[r.serviceName] = (serviceCount[r.serviceName] || 0) + 1;
+    });
+    let favoriteService = '-';
+    let maxCount = 0;
+    Object.entries(serviceCount).forEach(([service, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        favoriteService = service;
+      }
+    });
+
+    return {
+      name: `${firstReservation.firstName} ${firstReservation.lastName}`,
+      email: firstReservation.email,
+      phone: firstReservation.phone,
+      joinDate: firstReservation.createdAt,
+      totalVisits: completedReservations.length,
+      totalSpent: totalSpent,
+      favoriteService: favoriteService
+    };
+  };
+
+  const customerProfile = getCustomerProfile();
 
   // Filter reservations based on search term and active tab
   const getFilteredReservations = () => {
-    let filtered = customerReservations;
+    let filtered = reservations;
     
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(res => 
-        res.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        res.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        res.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase())
+        res.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        res.status.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
     // Filter by tab status
     if (activeTab === 'upcoming') {
-      filtered = filtered.filter(res => res.status === 'dikonfirmasi' || res.status === 'menunggu');
+      filtered = filtered.filter(res => res.status === 'pending');
     } else if (activeTab === 'history') {
-      filtered = filtered.filter(res => res.status === 'selesai' || res.status === 'dibatalkan');
+      filtered = filtered.filter(res => res.status === 'paid' || res.status === 'cancelled');
     }
     
-    return filtered;
+    // Sort by date (newest first)
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
   const getStatusBadge = (status: string) => {
     const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
-      dikonfirmasi: 'default',
-      menunggu: 'secondary',
-      selesai: 'outline',
-      dibatalkan: 'destructive'
+      paid: 'default',
+      pending: 'secondary',
+      cancelled: 'destructive'
     };
     const labels: { [key: string]: string } = {
-      dikonfirmasi: 'Dikonfirmasi',
-      menunggu: 'Menunggu',
-      selesai: 'Selesai',
-      dibatalkan: 'Dibatalkan'
+      paid: 'Lunas',
+      pending: 'Menunggu Pembayaran',
+      cancelled: 'Dibatalkan'
     };
     return <Badge variant={variants[status] || 'default'}>{labels[status] || status}</Badge>;
   };
 
   const getPaymentStatusBadge = (status: string) => {
     switch(status) {
-      case 'lunas':
+      case 'paid':
         return <Badge className="bg-green-500 text-white">Lunas</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500 text-white">Pending</Badge>;
-      case 'refund':
-        return <Badge className="bg-red-500 text-white">Refund</Badge>;
+        return <Badge className="bg-yellow-500 text-white">Menunggu Pembayaran</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-red-500 text-white">Dibatalkan</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -202,8 +222,6 @@ const Customer = () => {
         return <Wallet className="h-4 w-4 text-green-600" />;
       case 'transfer':
         return <Landmark className="h-4 w-4 text-blue-600" />;
-      case 'card':
-        return <CreditCard className="h-4 w-4 text-purple-600" />;
       case 'qris':
         return <QrCode className="h-4 w-4 text-orange-600" />;
       default:
@@ -211,31 +229,124 @@ const Customer = () => {
     }
   };
 
-  const formatRupiah = (amount: number) => {
+  const formatRupiah = (priceString: string) => {
+    const amount = parseInt(priceString.replace(/[^0-9]/g, ''));
     return `Rp. ${amount.toLocaleString('id-ID')}`;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (date: Date | string) => {
+    const d = new Date(date);
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+    return d.toLocaleDateString('id-ID', options);
   };
 
-  const handleViewDetails = (reservation: any) => {
+  const formatDateTime = (date: Date | string) => {
+    const d = new Date(date);
+    return formatDate(d) + ', ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleViewDetails = (reservation: ReservationData) => {
     setSelectedReservation(reservation);
     setShowDetailDialog(true);
   };
 
-  const handleCancelReservation = (id: number) => {
-    // Handle cancellation logic here
-    console.log('Cancel reservation:', id);
+  const handlePayNow = (reservation: ReservationData) => {
+    setSelectedReservation(reservation);
+    setShowPaymentDialog(true);
   };
 
-  // Stats for customer dashboard
+  const handleCancelReservation = (id: string) => {
+    const updatedReservations = reservations.map(res => 
+      res.id === id ? { ...res, status: 'cancelled' as const } : res
+    );
+    
+    // Update localStorage
+    const allReservations = localStorage.getItem('barber_reservations');
+    if (allReservations) {
+      const all = JSON.parse(allReservations);
+      const updatedAll = all.map((res: ReservationData) => 
+        res.id === id ? { ...res, status: 'cancelled' } : res
+      );
+      localStorage.setItem('barber_reservations', JSON.stringify(updatedAll));
+    }
+    
+    setReservations(updatedReservations);
+    setShowDetailDialog(false);
+    
+    toast({
+      title: "Reservasi Dibatalkan",
+      description: "Reservasi Anda telah dibatalkan.",
+    });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({ variant: "destructive", title: "Error", description: "Harap upload file gambar (JPG, PNG, dll)" });
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ variant: "destructive", title: "Error", description: "Ukuran file maksimal 5MB" });
+        return;
+      }
+      
+      setPaymentProof(file);
+      const previewUrl = URL.createObjectURL(file);
+      setPaymentProofPreview(previewUrl);
+    }
+  };
+
+  const removeFile = () => {
+    if (paymentProofPreview) {
+      URL.revokeObjectURL(paymentProofPreview);
+    }
+    setPaymentProof(null);
+    setPaymentProofPreview(null);
+  };
+
+  const handleConfirmPayment = () => {
+    if (!paymentProof && selectedReservation?.paymentMethod !== 'cash') {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Harap upload bukti pembayaran terlebih dahulu" 
+      });
+      return;
+    }
+
+    // Update status reservasi menjadi paid
+    const updatedReservations = reservations.map(res => 
+      res.id === selectedReservation?.id ? { ...res, status: 'paid' as const } : res
+    );
+    
+    // Update localStorage
+    const allReservations = localStorage.getItem('barber_reservations');
+    if (allReservations) {
+      const all = JSON.parse(allReservations);
+      const updatedAll = all.map((res: ReservationData) => 
+        res.id === selectedReservation?.id ? { ...res, status: 'paid' } : res
+      );
+      localStorage.setItem('barber_reservations', JSON.stringify(updatedAll));
+    }
+    
+    setReservations(updatedReservations);
+    setShowPaymentDialog(false);
+    setPaymentProof(null);
+    setPaymentProofPreview(null);
+    
+    toast({
+      title: "Pembayaran Berhasil! 🎉",
+      description: "Pembayaran Anda telah dikonfirmasi. Reservasi Anda sekarang sudah lunas.",
+    });
+  };
+
   const customerStats = {
-    upcomingReservations: customerReservations.filter(r => r.status === 'dikonfirmasi' || r.status === 'menunggu').length,
-    completedReservations: customerReservations.filter(r => r.status === 'selesai').length,
-    totalSpent: customerReservations.reduce((sum, r) => r.paymentStatus === 'lunas' ? sum + r.amount : sum, 0),
-    favoriteService: 'Potong Rambut Klasik'
+    upcomingReservations: reservations.filter(r => r.status === 'pending').length,
+    completedReservations: reservations.filter(r => r.status === 'paid').length,
+    totalSpent: customerProfile.totalSpent,
+    favoriteService: customerProfile.favoriteService
   };
 
   return (
@@ -280,7 +391,7 @@ const Customer = () => {
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Hubungi Kami
                   </Button>
-                  <Button className="bg-amber-600 hover:bg-amber-700">
+                  <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => window.location.href = '/booking'}>
                     <ScissorsIcon className="h-4 w-4 mr-2" />
                     Reservasi Baru
                   </Button>
@@ -298,7 +409,7 @@ const Customer = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{customerStats.upcomingReservations}</div>
-                <p className="text-xs text-muted-foreground">Reservasi yang sudah dijadwalkan</p>
+                <p className="text-xs text-muted-foreground">Menunggu pembayaran</p>
               </CardContent>
             </Card>
             <Card>
@@ -317,7 +428,7 @@ const Customer = () => {
                 <Receipt className="h-4 w-4 text-amber-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatRupiah(customerStats.totalSpent)}</div>
+                <div className="text-2xl font-bold">{formatRupiah(customerStats.totalSpent.toString())}</div>
                 <p className="text-xs text-muted-foreground">Sepanjang menjadi member</p>
               </CardContent>
             </Card>
@@ -327,7 +438,7 @@ const Customer = () => {
                 <Star className="h-4 w-4 text-amber-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{customerStats.favoriteService}</div>
+                <div className="text-2xl font-bold text-amber-600 truncate">{customerStats.favoriteService}</div>
                 <p className="text-xs text-muted-foreground">Paling sering dipesan</p>
               </CardContent>
             </Card>
@@ -358,7 +469,7 @@ const Customer = () => {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="reservations">Semua Reservasi</TabsTrigger>
-                  <TabsTrigger value="upcoming">Mendatang</TabsTrigger>
+                  <TabsTrigger value="upcoming">Menunggu Bayar</TabsTrigger>
                   <TabsTrigger value="history">Riwayat</TabsTrigger>
                 </TabsList>
 
@@ -366,11 +477,12 @@ const Customer = () => {
                   <ReservationsTable 
                     reservations={getFilteredReservations()}
                     onViewDetails={handleViewDetails}
-                    onCancel={handleCancelReservation}
+                    onPayNow={handlePayNow}
                     getStatusBadge={getStatusBadge}
                     getPaymentStatusBadge={getPaymentStatusBadge}
                     getPaymentMethodIcon={getPaymentMethodIcon}
                     formatRupiah={formatRupiah}
+                    formatDate={formatDate}
                   />
                 </TabsContent>
 
@@ -378,11 +490,12 @@ const Customer = () => {
                   <ReservationsTable 
                     reservations={getFilteredReservations()}
                     onViewDetails={handleViewDetails}
-                    onCancel={handleCancelReservation}
+                    onPayNow={handlePayNow}
                     getStatusBadge={getStatusBadge}
                     getPaymentStatusBadge={getPaymentStatusBadge}
                     getPaymentMethodIcon={getPaymentMethodIcon}
                     formatRupiah={formatRupiah}
+                    formatDate={formatDate}
                   />
                 </TabsContent>
 
@@ -390,11 +503,12 @@ const Customer = () => {
                   <ReservationsTable 
                     reservations={getFilteredReservations()}
                     onViewDetails={handleViewDetails}
-                    onCancel={handleCancelReservation}
+                    onPayNow={handlePayNow}
                     getStatusBadge={getStatusBadge}
                     getPaymentStatusBadge={getPaymentStatusBadge}
                     getPaymentMethodIcon={getPaymentMethodIcon}
                     formatRupiah={formatRupiah}
+                    formatDate={formatDate}
                   />
                 </TabsContent>
               </Tabs>
@@ -405,7 +519,7 @@ const Customer = () => {
 
       {/* Reservation Detail Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detail Reservasi</DialogTitle>
             <DialogDescription>
@@ -422,11 +536,11 @@ const Customer = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status Pembayaran</p>
-                  <div className="mt-1">{getPaymentStatusBadge(selectedReservation.paymentStatus)}</div>
+                  <div className="mt-1">{getPaymentStatusBadge(selectedReservation.status)}</div>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">ID Reservasi</p>
-                  <p className="font-medium">#RES-{selectedReservation.id.toString().padStart(4, '0')}</p>
+                  <p className="font-medium text-sm">{selectedReservation.id}</p>
                 </div>
               </div>
 
@@ -436,11 +550,11 @@ const Customer = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Layanan</p>
-                    <p className="font-medium">{selectedReservation.service}</p>
+                    <p className="font-medium">{selectedReservation.serviceName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Barber</p>
-                    <p className="font-medium">{selectedReservation.barber}</p>
+                    <p className="text-sm text-gray-600">Durasi</p>
+                    <p className="font-medium">{selectedReservation.serviceDuration}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Tanggal</p>
@@ -451,12 +565,12 @@ const Customer = () => {
                     <p className="font-medium">{selectedReservation.time}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Durasi</p>
-                    <p className="font-medium">{selectedReservation.duration}</p>
+                    <p className="text-sm text-gray-600">Harga</p>
+                    <p className="font-medium">{formatRupiah(selectedReservation.servicePrice)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Harga</p>
-                    <p className="font-medium">{formatRupiah(selectedReservation.amount)}</p>
+                    <p className="text-sm text-gray-600">Dibuat pada</p>
+                    <p className="font-medium text-sm">{formatDateTime(selectedReservation.createdAt)}</p>
                   </div>
                 </div>
               </div>
@@ -469,12 +583,34 @@ const Customer = () => {
                     <p className="text-sm text-gray-600">Metode Pembayaran</p>
                     <div className="flex items-center space-x-2 mt-1">
                       {getPaymentMethodIcon(selectedReservation.paymentMethod)}
-                      <span className="capitalize font-medium">{selectedReservation.paymentMethod}</span>
+                      <span className="capitalize font-medium">
+                        {selectedReservation.paymentMethod === 'cash' ? 'Tunai' : 
+                         selectedReservation.paymentMethod === 'transfer' ? 'Transfer Bank' : 'QRIS'}
+                      </span>
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Total Dibayar</p>
-                    <p className="font-medium">{formatRupiah(selectedReservation.amount)}</p>
+                    <p className="font-medium">{formatRupiah(selectedReservation.servicePrice)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info */}
+              <div>
+                <h3 className="font-semibold mb-3">Informasi Customer</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Nama Lengkap</p>
+                    <p className="font-medium">{selectedReservation.firstName} {selectedReservation.lastName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-medium">{selectedReservation.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Nomor Telepon</p>
+                    <p className="font-medium">{selectedReservation.phone}</p>
                   </div>
                 </div>
               </div>
@@ -487,35 +623,172 @@ const Customer = () => {
                 </div>
               )}
 
-              {selectedReservation.cancellationReason && (
-                <div>
-                  <h3 className="font-semibold mb-2 text-red-600">Alasan Pembatalan</h3>
-                  <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{selectedReservation.cancellationReason}</p>
+              {selectedReservation.paymentDueDate && selectedReservation.status === 'pending' && (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Batas waktu pembayaran: {formatDateTime(selectedReservation.paymentDueDate)}
+                  </p>
                 </div>
               )}
 
               {/* Action Buttons */}
-              {selectedReservation.status !== 'selesai' && selectedReservation.status !== 'dibatalkan' && (
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
-                    Tutup
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+                  Tutup
+                </Button>
+                {selectedReservation.status === 'pending' && (
+                  <>
+                    <Button onClick={() => {
+                      setShowDetailDialog(false);
+                      handlePayNow(selectedReservation);
+                    }} className="bg-amber-600 hover:bg-amber-700">
+                      Bayar Sekarang
+                    </Button>
+                    <Button variant="destructive" onClick={() => handleCancelReservation(selectedReservation.id)}>
+                      Batalkan Reservasi
+                    </Button>
+                  </>
+                )}
+                {selectedReservation.status === 'paid' && (
+                  <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => window.location.href = '/booking'}>
+                    Reservasi Lagi
                   </Button>
-                  <Button variant="destructive" onClick={() => handleCancelReservation(selectedReservation.id)}>
-                    Batalkan Reservasi
-                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Konfirmasi Pembayaran</DialogTitle>
+            <DialogDescription className="text-center">
+              Silakan selesaikan pembayaran untuk reservasi Anda
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedReservation && (
+            <div className="space-y-6 py-4">
+              {/* Detail Pembayaran */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Layanan:</span>
+                  <span className="font-medium">{selectedReservation.serviceName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tanggal & Waktu:</span>
+                  <span className="font-medium">{formatDate(selectedReservation.date)} - {selectedReservation.time}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Metode:</span>
+                  <span className="font-medium flex items-center">
+                    {getPaymentMethodIcon(selectedReservation.paymentMethod)}
+                    <span className="ml-1 capitalize">
+                      {selectedReservation.paymentMethod === 'cash' ? 'Tunai' : 
+                       selectedReservation.paymentMethod === 'transfer' ? 'Transfer Bank' : 'QRIS'}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total:</span>
+                  <span className="text-barber-gold">{formatRupiah(selectedReservation.servicePrice)}</span>
+                </div>
+              </div>
+
+              {/* Informasi Pembayaran berdasarkan metode */}
+              {selectedReservation.paymentMethod === 'transfer' && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="font-medium text-blue-800 mb-3">Informasi Transfer Bank:</p>
+                  <div className="space-y-3">
+                    {bankAccounts.map((bank, index) => (
+                      <div key={index} className="bg-white p-3 rounded-md">
+                        <p className="font-semibold text-blue-800">{bank.bank}</p>
+                        <p className="text-sm text-gray-600">No. Rekening: <span className="font-mono font-bold">{bank.accountNumber}</span></p>
+                        <p className="text-sm text-gray-600">a.n. {bank.accountName}</p>
+                      </div>
+                    ))}
+                    <p className="text-xs text-blue-600 mt-2">
+                      * Silakan transfer sesuai dengan total yang harus dibayar. Sertakan kode reservasi: {selectedReservation.id}
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {selectedReservation.status === 'selesai' && (
-                <div className="flex justify-end pt-4 border-t">
-                  <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
-                    Tutup
-                  </Button>
-                  <Button className="ml-3 bg-amber-600 hover:bg-amber-700">
-                    Reservasi Lagi
-                  </Button>
+              {selectedReservation.paymentMethod === 'qris' && (
+                <div className="bg-orange-50 p-4 rounded-lg text-center">
+                  <p className="font-medium text-orange-800 mb-2">Scan QRIS</p>
+                  <div className="flex justify-center mb-2">
+                    <div className="w-56 h-56 bg-white rounded-xl shadow-lg flex items-center justify-center border-2 border-orange-200">
+                      <div className="text-center">
+                        <QrCode className="h-40 w-40 text-orange-600 mx-auto" />
+                        <p className="text-xs text-gray-500 mt-2">QRIS Code</p>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-orange-600 mb-2">Scan menggunakan aplikasi e-wallet atau m-banking Anda</p>
+                  <p className="text-xs text-orange-500">Nominal: {formatRupiah(selectedReservation.servicePrice)}</p>
                 </div>
               )}
+
+              {selectedReservation.paymentMethod === 'cash' && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-center text-green-800">
+                    Bayar tunai saat Anda tiba di tempat kami
+                  </p>
+                </div>
+              )}
+
+              {/* Upload Bukti Pembayaran untuk non-tunai */}
+              {(selectedReservation.paymentMethod === 'transfer' || selectedReservation.paymentMethod === 'qris') && (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  <Label className="block mb-2 font-medium">Upload Bukti Pembayaran</Label>
+                  {!paymentProofPreview ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <input
+                        type="file"
+                        id="payment-proof"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="payment-proof"
+                        className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500">Klik untuk upload bukti transfer/QRIS</p>
+                        <p className="text-xs text-gray-400">Format: JPG, PNG (Max 5MB)</p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <img 
+                        src={paymentProofPreview} 
+                        alt="Bukti Pembayaran" 
+                        className="w-full h-auto rounded-lg border"
+                      />
+                      <button
+                        onClick={removeFile}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tombol Konfirmasi */}
+              <Button 
+                onClick={handleConfirmPayment}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              >
+                Konfirmasi Pembayaran
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -526,23 +799,25 @@ const Customer = () => {
   );
 };
 
-// Separate component for reservations table to keep code organized
+// Reservations Table Component
 const ReservationsTable = ({ 
   reservations, 
   onViewDetails, 
-  onCancel, 
+  onPayNow,
   getStatusBadge, 
   getPaymentStatusBadge, 
   getPaymentMethodIcon, 
-  formatRupiah 
+  formatRupiah,
+  formatDate
 }: { 
-  reservations: any[], 
-  onViewDetails: (reservation: any) => void, 
-  onCancel: (id: number) => void,
+  reservations: ReservationData[], 
+  onViewDetails: (reservation: ReservationData) => void, 
+  onPayNow: (reservation: ReservationData) => void,
   getStatusBadge: (status: string) => React.ReactNode,
   getPaymentStatusBadge: (status: string) => React.ReactNode,
   getPaymentMethodIcon: (method: string) => React.ReactNode,
-  formatRupiah: (amount: number) => string
+  formatRupiah: (price: string) => string,
+  formatDate: (date: Date | string) => string
 }) => {
   if (reservations.length === 0) {
     return (
@@ -550,7 +825,7 @@ const ReservationsTable = ({
         <CalendarDays className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak ada reservasi</h3>
         <p className="text-gray-500">Belum ada reservasi yang ditemukan</p>
-        <Button className="mt-4 bg-amber-600 hover:bg-amber-700">
+        <Button className="mt-4 bg-amber-600 hover:bg-amber-700" onClick={() => window.location.href = '/booking'}>
           Buat Reservasi Sekarang
         </Button>
       </div>
@@ -567,7 +842,6 @@ const ReservationsTable = ({
             <TableHead>Layanan</TableHead>
             <TableHead>Metode Bayar</TableHead>
             <TableHead>Jumlah</TableHead>
-            <TableHead>Status Bayar</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Aksi</TableHead>
           </TableRow>
@@ -575,17 +849,19 @@ const ReservationsTable = ({
         <TableBody>
           {reservations.map((reservation) => (
             <TableRow key={reservation.id}>
-              <TableCell>{reservation.date}</TableCell>
+              <TableCell>{formatDate(reservation.date)}</TableCell>
               <TableCell>{reservation.time}</TableCell>
-              <TableCell className="font-medium">{reservation.service}</TableCell>
+              <TableCell className="font-medium">{reservation.serviceName}</TableCell>
               <TableCell>
                 <div className="flex items-center space-x-2">
                   {getPaymentMethodIcon(reservation.paymentMethod)}
-                  <span className="capitalize">{reservation.paymentMethod}</span>
+                  <span className="capitalize text-sm">
+                    {reservation.paymentMethod === 'cash' ? 'Tunai' : 
+                     reservation.paymentMethod === 'transfer' ? 'Transfer' : 'QRIS'}
+                  </span>
                 </div>
               </TableCell>
-              <TableCell>{formatRupiah(reservation.amount)}</TableCell>
-              <TableCell>{getPaymentStatusBadge(reservation.paymentStatus)}</TableCell>
+              <TableCell>{formatRupiah(reservation.servicePrice)}</TableCell>
               <TableCell>{getStatusBadge(reservation.status)}</TableCell>
               <TableCell>
                 <div className="flex space-x-2">
@@ -596,14 +872,13 @@ const ReservationsTable = ({
                   >
                     Detail
                   </Button>
-                  {(reservation.status === 'menunggu' || reservation.status === 'dikonfirmasi') && (
+                  {reservation.status === 'pending' && (
                     <Button 
-                      variant="outline" 
                       size="sm" 
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => onCancel(reservation.id)}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={() => onPayNow(reservation)}
                     >
-                      Batal
+                      Bayar
                     </Button>
                   )}
                 </div>

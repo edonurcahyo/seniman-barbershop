@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Menu, User } from 'lucide-react';
+import BranchSelector from './BranchSelector'; // Import BranchSelector
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,6 +19,9 @@ const Navbar = () => {
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
+            {/* Branch Selector - ditempatkan paling kiri setelah logo */}
+            <BranchSelector />
+            
             <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
             <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Layanan</Link>
             {/* <Link to="/barbers" className="font-medium hover:text-barber-gold transition-colors">Barbers</Link> */}
@@ -53,7 +56,11 @@ const Navbar = () => {
           </div>
           
           {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center gap-2">
+            {/* Branch Selector untuk mobile - versi ringkas */}
+            <div className="mr-1">
+              <BranchSelector />
+            </div>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -68,6 +75,13 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden pt-4 pb-3 border-t mt-2 animate-fade-in">
             <div className="flex flex-col space-y-3">
+              {/* Branch selector sudah ditampilkan di header mobile, 
+                  tapi bisa juga ditampilkan ulang di sini untuk kemudahan */}
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs text-gray-500 mb-2">Cabang aktif:</p>
+                <BranchSelector />
+              </div>
+              
               <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Beranda</Link>
               <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Layanan</Link>
               {/* <Link to="/barbers" className="px-3 py-2 rounded-md hover:bg-gray-100">Barbers</Link> */}
