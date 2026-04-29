@@ -166,9 +166,9 @@ export const branches: Branch[] = [
     mapsUrl: 'https://maps.google.com/?q=Jl.+Rungkut+Madya+No.29,+Medokan+Ayu,+Surabaya',
     
     operationalHours: {
-      monday_friday: { open: '09:00', close: '19:00' },
-      saturday: { open: '10:00', close: '18:00' },
-      sunday: { open: '10:00', close: '16:00' }
+      monday_friday: { open: '10:00', close: '22:00' },
+      saturday: { open: '10:00', close: '22:00' },
+      sunday: { open: '10:00', close: '22:00' }
     },
     
     heroTitle: 'Rancang Gaya Anda di Rungkut',
@@ -217,10 +217,10 @@ export const branches: Branch[] = [
     mapsUrl: 'https://maps.google.com/?q=Jl.+Taman+Asri+No.146,+Pondok+Tjandra+Indah,+Surabaya',
     
     operationalHours: {
-      monday_friday: { open: '08:30', close: '20:00' },
-      saturday: { open: '09:00', close: '19:00' },
-      sunday: { open: '09:00', close: '17:00' },
-      holiday: { open: '10:00', close: '16:00', note: 'Jam operasional khusus hari libur nasional' }
+      monday_friday: { open: '10:00', close: '22:00' },
+      saturday: { open: '10:00', close: '22:00' },
+      sunday: { open: '10:00', close: '22:00' },
+      holiday: { open: '10:00', close: '22:00', note: 'Jam operasional khusus hari libur nasional' }
     },
     
     heroTitle: 'Tampil Gaya di Taman Asri',

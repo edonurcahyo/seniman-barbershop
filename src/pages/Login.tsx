@@ -1,6 +1,6 @@
-
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from "axios";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,24 +12,118 @@ import Footer from '@/components/Footer';
 
 const Login = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({
-      title: "Login Berhasil",
-      description: "Anda telah berhasil masuk ke akun Anda.",
-    });
-    // In a real app, you would handle authentication here
+  // Login state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+  // Register state
+  const [namaDepan, setNamaDepan] = useState("");
+  const [namaBelakang, setNamaBelakang] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Reset semua form saat component mount
+  useEffect(() => {
+    resetAllForms();
+  }, []);
+
+  const resetAllForms = () => {
+    // Reset login form
+    setLoginEmail("");
+    setLoginPassword("");
+    
+    // Reset register form
+    setNamaDepan("");
+    setNamaBelakang("");
+    setRegEmail("");
+    setPhone("");
+    setRegPassword("");
+    setConfirmPassword("");
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Registrasi Berhasil",
-      description: "Akun Anda telah berhasil dibuat. Silakan masuk.",
-    });
-    // In a real app, you would handle registration here
+
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/api/login", {
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      // Simpan data user
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      localStorage.setItem("customer_email", res.data.user.email);
+      localStorage.setItem("customer_name", res.data.user.nama || `${res.data.user.nama_depan} ${res.data.user.nama_belakang}`);
+      localStorage.setItem("isLoggedIn", "true");  // ← Tambahkan ini
+      
+      // Simpan token jika ada
+      if (res.data.token) {
+        localStorage.setItem("auth_token", res.data.token);
+      }
+
+      toast({
+        title: "Login Berhasil",
+        description: "Selamat datang kembali.",
+      });
+
+      // Redirect ke Index/Home dulu
+      navigate("/");
+
+    } catch (error: any) {
+      toast({
+        title: "Login Gagal",
+        description: error.response?.data?.message || "Email atau password salah.",
+        variant: "destructive",
+      });
+    }
+  };
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (regPassword !== confirmPassword) {
+      toast({
+        title: "Gagal",
+        description: "Password tidak sama.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await axios.post("http://127.0.0.1:8000/api/register", {
+        nama: namaDepan + " " + namaBelakang,
+        email: regEmail,
+        password: regPassword,
+        no_hp: phone,
+      });
+
+      toast({
+        title: "Registrasi Berhasil",
+        description: "Silakan login.",
+      });
+
+      setActiveTab("login");
+      
+      // Reset form register
+      setNamaDepan("");
+      setNamaBelakang("");
+      setRegEmail("");
+      setPhone("");
+      setRegPassword("");
+      setConfirmPassword("");
+
+    } catch (error) {
+      toast({
+        title: "Registrasi Gagal",
+        description: "Email sudah digunakan.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -39,7 +133,7 @@ const Login = () => {
       <div className="min-h-screen bg-gray-50 py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-md mx-auto">
-            <Tabs defaultValue="login" className="w-full" onValueChange={(value) => setActiveTab(value as "login" | "register")}>
+            <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value as "login" | "register")}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="register">Register</TabsTrigger>
@@ -58,7 +152,10 @@ const Login = () => {
                           <Input
                             id="email"
                             type="email"
-                            placeholder="nama@example.com"
+                            placeholder="nama@gmail.com"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            autoComplete="off"
                             required
                           />
                         </div>
@@ -72,6 +169,9 @@ const Login = () => {
                           <Input
                             id="password"
                             type="password"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            autoComplete="new-password"
                             required
                           />
                         </div>
@@ -121,7 +221,10 @@ const Login = () => {
                             <Label htmlFor="firstName">Nama depan</Label>
                             <Input
                               id="firstName"
-                              placeholder="Hendrikus"
+                              placeholder="nama depan"
+                              value={namaDepan}
+                              onChange={(e) => setNamaDepan(e.target.value)}
+                              autoComplete="off"
                               required
                             />
                           </div>
@@ -129,17 +232,23 @@ const Login = () => {
                             <Label htmlFor="lastName">Nama belakang</Label>
                             <Input
                               id="lastName"
-                              placeholder="Olmedo"
+                              placeholder="nama belakang"
+                              value={namaBelakang}
+                              onChange={(e) => setNamaBelakang(e.target.value)}
+                              autoComplete="off"
                               required
                             />
                           </div>
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="email">Email</Label>
+                          <Label htmlFor="regEmail">Email</Label>
                           <Input
                             id="regEmail"
                             type="email"
-                            placeholder="nama@example.com"
+                            placeholder="nama@gmail.com"
+                            value={regEmail}
+                            onChange={(e) => setRegEmail(e.target.value)}
+                            autoComplete="off"
                             required
                           />
                         </div>
@@ -148,15 +257,21 @@ const Login = () => {
                           <Input
                             id="phone"
                             type="tel"
-                            placeholder="(123) 456-7890"
+                            placeholder="(+62) 123-4567-8901"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            autoComplete="off"
                             required
                           />
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="password">Password</Label>
+                          <Label htmlFor="regPassword">Password</Label>
                           <Input
                             id="regPassword"
                             type="password"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            autoComplete="new-password"
                             required
                           />
                         </div>
@@ -165,6 +280,9 @@ const Login = () => {
                           <Input
                             id="confirmPassword"
                             type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            autoComplete="new-password"
                             required
                           />
                         </div>
