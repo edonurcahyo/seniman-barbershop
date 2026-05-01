@@ -177,7 +177,7 @@ export const branches: Branch[] = [
     aboutDescription: 'Di Barbershop Seniman cabang Rungkut, kami menggabungkan seni tradisional dengan teknik modern untuk memberikan pengalaman grooming yang tak tertandingi. Dengan tim barber berpengalaman, kami berkomitmen untuk membantu Anda menemukan gaya yang sempurna, menciptakan penampilan yang tidak hanya menarik tetapi juga mencerminkan kepribadian Anda.',
     aboutHighlights: [
       'Barber profesional dan berpengalaman',
-      'Area parkir luas',
+      // 'Area parkir luas',
       'Pendingin ruangan',
       'WiFi gratis'
     ],
@@ -236,7 +236,7 @@ export const branches: Branch[] = [
       'Majalah & hiburan'
     ],
     
-    priceMultiplier: 1.1,
+    priceMultiplier: 1.0,
     taxPercentage: 10,
     
     exclusiveServices: ['Hair Tattoo', 'Royal Shave', 'Hair Spa Premium'],

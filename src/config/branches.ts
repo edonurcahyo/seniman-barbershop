@@ -100,61 +100,52 @@ export interface Branch {
 }
 
 // Data layanan dasar (akan digunakan di ServicesSection)
+// src/config/branches.ts - UPDATE baseServices
 export const baseServices: BranchService[] = [
   {
     id: 1,
-    title: 'Potong Rambut',
-    basePrice: 40000,
-    description: 'Ubah penampilan Anda dengan potongan rambut segar yang disesuaikan dengan gaya Anda.',
+    title: 'Bald Cut',
+    basePrice: 45000,
+    description: 'Potongan rambut model bald cut yang rapi, bersih, dan modern. Cocok untuk tampilan yang tegas dan maskulin.',
     duration: '30 menit',
-    image: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-    category: 'Basic'
+    image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    category: 'Haircut'
   },
   {
     id: 2,
-    title: 'Rapihkan Jenggot',
-    basePrice: 20000,
-    description: 'Pembentukan dan penataan jenggot oleh ahli untuk meningkatkan penampilan Anda.',
-    duration: '20 menit',
-    image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-    category: 'Grooming'
+    title: 'Haircut and Wash',
+    basePrice: 40000,
+    description: 'Potong rambut plus cuci rambut dengan pijatan ringan untuk relaksasi. Hasil rambut bersih, wangi, dan rapi.',
+    duration: '40 menit',
+    image: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    category: 'Haircut'
   },
   {
     id: 3,
-    title: 'Pewarnaan Rambut',
-    basePrice: 100000,
-    description: 'Warna yang hidup, sentuhan ahli - pewarnaan rambut profesional dengan hasil mewah.',
-    duration: '60 menit',
-    image: 'https://media.istockphoto.com/id/1182128730/photo/hairdresser-hand-in-black-gloves-paints-the-womans-hair-in-a-pink-color.webp?a=1&b=1&s=612x612&w=0&k=20&c=mVxgN3ejZb51InyKsTLENVePhhyEjlndVaowyF9N3WY=',
-    category: 'Color'
+    title: 'Kids Haircut',
+    basePrice: 30000,
+    description: 'Potong rambut khusus anak dengan suasana menyenangkan dan barber yang ramah. Aman dan nyaman untuk si kecil.',
+    duration: '25 menit',
+    image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    category: 'Haircut'
   },
   {
     id: 4,
-    title: 'Hair Tattoo',
-    basePrice: 150000,
-    description: 'Desain rambut kreatif dan unik untuk tampilan yang lebih berani.',
-    duration: '45 menit',
-    image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-    category: 'Premium',
-    // exclusiveTo?: '2' // hanya di cabang Taman Asri
+    title: 'Shaving',
+    basePrice: 25000,
+    description: 'Cukur jenggot atau kumis dengan handuk panas dan pisau cukur tajam. Hasil bersih tanpa iritasi.',
+    duration: '20 menit',
+    image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    category: 'Grooming'
   },
   {
     id: 5,
-    title: 'Royal Shave',
-    basePrice: 85000,
-    description: 'Pengalaman cukur klasik dengan handuk panas dan produk premium.',
-    duration: '45 menit',
-    image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-    category: 'Premium'
-  },
-  {
-    id: 6,
-    title: 'Hair Spa',
-    basePrice: 120000,
-    description: 'Perawatan rambut intensif dengan pijat kepala relaksasi.',
-    duration: '50 menit',
-    image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-    category: 'Spa'
+    title: 'Toning',
+    basePrice: 50000,
+    description: 'Pewarnaan rambut dengan teknik toning untuk hasil warna natural dan merata. Cocok untuk refreshing warna rambut.',
+    duration: '60 menit',
+    image: 'https://media.istockphoto.com/id/1182128730/photo/hairdresser-hand-in-black-gloves-paints-the-womans-hair-in-a-pink-color.webp?a=1&b=1&s=612x612&w=0&k=20&c=mVxgN3ejZb51InyKsTLENVePhhyEjlndVaowyF9N3WY=',
+    category: 'Color'
   }
 ];
 
@@ -174,15 +165,15 @@ export const branches: Branch[] = [
     phone: '(031) 1234-5678',
     alternativePhone: '0812-3456-7890',
     email: 'rungkut@senimanbarbershop.com',
-    mapsUrl: 'https://maps.google.com/?q=Jl.+Rungkut+Madya+No.29,+Medokan+Ayu,+Surabaya',
+    mapsUrl: 'https://maps.app.goo.gl/ckpsKfaaWgCLJjyi9',
     mapsEmbedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3957.123456789!2d112.7654321!3d-7.2987654!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zN8KwMTcnNTUuNSJTIDExMsKwNDUnNTYuMSJF!5e0!3m2!1sen!2sid!4v1234567890123!5m2!1sen!2sid',
     
     // Jam Operasional
     operationalHours: {
-      monday_friday: { open: '09:00', close: '19:00' },
-      saturday: { open: '10:00', close: '18:00' },
-      sunday: { open: '10:00', close: '16:00' },
-      holiday: { open: '10:00', close: '15:00', note: 'Jam operasional khusus hari libur nasional' }
+      monday_friday: { open: '10:00', close: '22:00' },
+      saturday: { open: '10:00', close: '22:00' },
+      sunday: { open: '10:00', close: '22:00' },
+      holiday: { open: '10:00', close: '22:00', note: 'Jam operasional khusus hari libur nasional' }
     },
     
     // Konten Hero
@@ -220,7 +211,7 @@ export const branches: Branch[] = [
     
     // Rating
     rating: 4.8,
-    totalReviews: 342,
+    totalReviews: 137,
     
     // Koordinat
     coordinates: {
@@ -242,15 +233,15 @@ export const branches: Branch[] = [
     phone: '(031) 8765-4321',
     alternativePhone: '0812-9876-5432',
     email: 'tamanasri@senimanbarbershop.com',
-    mapsUrl: 'https://maps.google.com/?q=Jl.+Taman+Asri+No.146,+Pondok+Tjandra+Indah,+Surabaya',
+    mapsUrl: 'https://maps.app.goo.gl/VCrFrW6xw85syp8A7',
     mapsEmbedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3957.987654321!2d112.7234567!3d-7.2876543!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zN8KwMTcnMTUuNSJTIDExMsKwNDMnMjEuMSJF!5e0!3m2!1sen!2sid!4v1234567890123!5m2!1sen!2sid',
     
     // Jam Operasional (lebih panjang)
     operationalHours: {
-      monday_friday: { open: '08:30', close: '20:00' },
-      saturday: { open: '09:00', close: '19:00' },
-      sunday: { open: '09:00', close: '17:00' },
-      holiday: { open: '10:00', close: '16:00', note: 'Jam operasional khusus hari libur nasional' }
+      monday_friday: { open: '10:00', close: '22:00' },
+      saturday: { open: '10:00', close: '22:00' },
+      sunday: { open: '10:00', close: '22:00' },
+      // holiday: { open: '10:00', close: '16:00', note: 'Jam operasional khusus hari libur nasional' }
     },
     
     // Konten Hero
@@ -289,8 +280,8 @@ export const branches: Branch[] = [
     features: ['Parkir VIP', 'AC Premium', 'WiFi Cepat', 'Minuman Gratis', 'Area Lounge', 'TV'],
     
     // Rating (lebih tinggi karena cabang premium)
-    rating: 4.9,
-    totalReviews: 187,
+    rating: 4.5,
+    totalReviews: 67,
     
     // Koordinat
     coordinates: {

@@ -70,20 +70,20 @@ const HeroSection = () => {
             </Button>
           </Link>
           <Link to="/services">
-            <Button variant="outline" className="px-8 py-6 text-lg border-white text-white hover:bg-white/10 transform transition-all duration-300 hover:scale-105">
+            <Button variant="outline" className="px-8 py-6 text-lg border-barber-gold text-barber-gold hover:bg-barber-gold hover:text-black transform transition-all duration-300 hover:scale-105">
               Lihat Layanan
             </Button>
           </Link>
         </div>
-        
-        {/* Badge untuk cabang premium (Taman Asri) */}
+      
+        {/* Badge untuk cabang premium (Taman Asri)
         {currentBranch.id === '2' && (
           <div className="mt-6 inline-block">
             <span className="px-3 py-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white text-xs font-semibold rounded-full">
               ⭐ Cabang Premium ⭐
             </span>
           </div>
-        )}
+        )} */}
       </div>
     </section>
   );

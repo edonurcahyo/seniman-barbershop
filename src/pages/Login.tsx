@@ -55,26 +55,40 @@ const Login = () => {
         password: loginPassword,
       });
 
-      // Simpan data user
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      localStorage.setItem("customer_email", res.data.user.email);
-      localStorage.setItem("customer_name", res.data.user.nama || `${res.data.user.nama_depan} ${res.data.user.nama_belakang}`);
-      localStorage.setItem("isLoggedIn", "true");  // ← Tambahkan ini
+      // 🔥 Ambil data user dari response
+      const userData = res.data.user;
       
-      // Simpan token jika ada
+      // 🔥 Simpan data user ke localStorage
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("customer_email", userData.email);
+      localStorage.setItem("customer_name", userData.nama);
+      localStorage.setItem("customer_phone", userData.no_hp || phone);
+      localStorage.setItem("isLoggedIn", "true");
+      
+      // 🔥 Buat dan simpan token sederhana jika API tidak mengembalikan token
       if (res.data.token) {
         localStorage.setItem("auth_token", res.data.token);
+      } else {
+        // Buat token dummy berdasarkan email dan timestamp
+        const dummyToken = btoa(userData.email + ":" + Date.now());
+        localStorage.setItem("auth_token", dummyToken);
+      }
+      
+      // 🔥 Simpan juga branch default (jika ada)
+      if (!localStorage.getItem('selected_cabang')) {
+        localStorage.setItem('selected_cabang', '1');
       }
 
       toast({
         title: "Login Berhasil",
-        description: "Selamat datang kembali.",
+        description: `Selamat datang kembali, ${userData.nama}!`,
       });
 
-      // Redirect ke Index/Home dulu
+      // Redirect ke Home
       navigate("/");
 
     } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         title: "Login Gagal",
         description: error.response?.data?.message || "Email atau password salah.",
@@ -82,6 +96,7 @@ const Login = () => {
       });
     }
   };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -95,20 +110,20 @@ const Login = () => {
     }
 
     try {
-      await axios.post("http://127.0.0.1:8000/api/register", {
+      const response = await axios.post("http://127.0.0.1:8000/api/register", {
         nama: namaDepan + " " + namaBelakang,
         email: regEmail,
         password: regPassword,
         no_hp: phone,
       });
 
+      console.log('Register response:', response.data);
+
       toast({
         title: "Registrasi Berhasil",
-        description: "Silakan login.",
+        description: "Akun Anda telah berhasil dibuat. Silakan login.",
       });
 
-      setActiveTab("login");
-      
       // Reset form register
       setNamaDepan("");
       setNamaBelakang("");
@@ -116,11 +131,18 @@ const Login = () => {
       setPhone("");
       setRegPassword("");
       setConfirmPassword("");
+      
+      // Pindah ke tab login
+      setActiveTab("login");
+      
+      // Optional: Isi email di form login
+      setLoginEmail(regEmail);
 
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Register error:', error);
       toast({
         title: "Registrasi Gagal",
-        description: "Email sudah digunakan.",
+        description: error.response?.data?.message || "Email sudah digunakan atau terjadi kesalahan.",
         variant: "destructive",
       });
     }

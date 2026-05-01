@@ -36,7 +36,7 @@ const ServicesSection = () => {
             Kami menawarkan berbagai layanan perawatan untuk membuat Anda selalu tampil terbaik.
             {currentBranch.priceMultiplier !== 1.0 && (
               <span className="block text-sm text-barber-gold mt-2">
-                *Harga untuk cabang {currentBranch.shortName} sudah termasuk biaya lokasi premium
+                {/* *Harga untuk cabang {currentBranch.shortName} sudah termasuk biaya lokasi premium */}
               </span>
             )}
           </p>

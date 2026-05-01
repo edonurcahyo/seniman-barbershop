@@ -4,31 +4,22 @@ import { Button } from '@/components/ui/button';
 import { useBranch } from '@/context/BranchContext';
 
 const CTASection = () => {
-  const { currentBranch, formatPrice } = useBranch();
+  const { currentBranch } = useBranch();
 
   // Fungsi untuk membuat link booking dengan parameter cabang
   const getBookingLink = () => {
     return `/booking?branch=${currentBranch.id}&branchName=${encodeURIComponent(currentBranch.shortName)}`;
   };
 
-  // Ambil harga dasar untuk promosi (contoh: potong rambut)
-  const baseHaircutPrice = 40000;
-  const promoPrice = formatPrice(baseHaircutPrice);
-
   return (
     <section className="py-20 bg-barber-brown text-white relative overflow-hidden">
-      {/* Background装饰 */}
+      {/* Background dekoratif */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 left-0 w-64 h-64 bg-barber-gold rounded-full filter blur-3xl"></div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-barber-gold rounded-full filter blur-3xl"></div>
       </div>
 
       <div className="container mx-auto px-4 text-center relative z-10">
-        {/* Badge promo (opsional) */}
-        <div className="inline-block px-3 py-1 bg-barber-gold/20 rounded-full text-barber-gold text-sm font-semibold mb-4">
-          ✨ Promo Spesial ✨
-        </div>
-
         <h2 className="text-3xl md:text-4xl font-bold mb-6">
           Siap untuk tampilan baru di {currentBranch.shortName}?
         </h2>
@@ -59,13 +50,6 @@ const CTASection = () => {
                 : `${currentBranch.operationalHours.monday_friday.open} - ${currentBranch.operationalHours.monday_friday.close}`
             }</span>
           </div>
-        </div>
-
-        {/* Harga promo */}
-        <div className="mb-8">
-          <p className="text-lg mb-2">Mulai dari</p>
-          <p className="text-4xl font-bold text-barber-gold">{promoPrice}</p>
-          <p className="text-sm text-white/80 mt-1">untuk potongan rambut + keramas</p>
         </div>
 
         {/* CTA Buttons */}

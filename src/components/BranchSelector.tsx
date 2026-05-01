@@ -194,13 +194,13 @@ const BranchSelector = () => {
                       )}
 
                       {/* Badge Premium (untuk cabang Taman Asri) */}
-                      {branch.id === '2' && (
+                      {/* {branch.id === '2' && (
                         <div className="mt-2">
                           <span className="text-xs px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-full font-medium">
                             Premium
                           </span>
                         </div>
-                      )}
+                      )} */}
                     </div>
 
                     {/* Telepon (quick action) */}

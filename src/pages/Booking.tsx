@@ -1,4 +1,4 @@
-// Booking.tsx
+// src/pages/Booking.tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, CreditCard, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle, MapPin, Store, Phone, Clock as ClockIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -26,6 +26,7 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import axiosInstance from '@/lib/axios';
+import { useBranch } from '@/context/BranchContext'; // 🔥 IMPORT useBranch
 
 // Interface untuk data dari API
 interface ServiceData {
@@ -62,6 +63,8 @@ interface ReservationData {
 
 const Booking = () => {
   const { toast } = useToast();
+  const { currentBranch } = useBranch(); // 🔥 Ambil currentBranch dari context
+  
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -89,7 +92,7 @@ const Booking = () => {
     notes: ''
   });
 
-  // 🔥 Data rekening bank
+  // Data rekening bank
   const bankAccounts = [
     { bank: 'BCA', accountNumber: '1234567890', accountName: 'Seniman Barbershop' },
     { bank: 'Mandiri', accountNumber: '9876543210', accountName: 'Seniman Barbershop' },
@@ -97,7 +100,7 @@ const Booking = () => {
     { bank: 'BRI', accountNumber: '7778889990', accountName: 'Seniman Barbershop' }
   ];
 
-  // 🔥 FUNGSI UNTUK LOAD DATA USER YANG LOGIN
+  // FUNGSI UNTUK LOAD DATA USER YANG LOGIN
   const loadUserData = () => {
     const userStr = localStorage.getItem('user');
     console.log('User data from localStorage:', userStr);
@@ -136,7 +139,7 @@ const Booking = () => {
     }
   };
 
-  // 🔥 Load layanan dari API
+  // Load layanan dari API
   const loadServices = async () => {
     try {
       const response = await axiosInstance.get('/layanan');
@@ -157,7 +160,7 @@ const Booking = () => {
     }
   };
 
-  // 🔥 Load time slots ketika tanggal berubah
+  // Load time slots ketika tanggal berubah
   const loadTimeSlots = async (tanggal: string) => {
     try {
       const response = await axiosInstance.get(`/slots/${tanggal}`);
@@ -174,16 +177,11 @@ const Booking = () => {
     }
   };
 
-  // 🔥 useEffect untuk load data user dan services saat component mount
+  // useEffect untuk load data user dan services saat component mount
   useEffect(() => {
-    loadUserData();  // Auto fill form dengan data user yang login
+    loadUserData();
     loadServices();
   }, []);
-
-  // Generate unique ID untuk reservasi
-  const generateReservationId = () => {
-    return 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-  };
 
   // Handle date change
   const handleDateChange = (newDate: Date | undefined) => {
@@ -270,7 +268,7 @@ const Booking = () => {
     }
   };
 
-  // Simpan reservasi ke database (Bayar Nanti)
+  // 🔥 Simpan reservasi ke database (Bayar Nanti) - UPDATED dengan useBranch
   const handleSaveReservation = async () => {
     // Validasi data diri
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
@@ -284,7 +282,6 @@ const Booking = () => {
 
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
-    const cabang = localStorage.getItem('selected_cabang') || localStorage.getItem('selectedBranch');
 
     if (!user || !user.id_pelanggan) {
       toast({ 
@@ -298,12 +295,16 @@ const Booking = () => {
     const selectedServiceData = getSelectedServiceData();
     if (!selectedServiceData) return;
 
+    // 🔥 Ambil cabang_id dari currentBranch (useBranch)
+    const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
+    console.log('Current branch ID:', cabangId, 'Branch:', currentBranch?.shortName);
+
     setLoading(true);
 
     try {
       const response = await axiosInstance.post('/reservasi', {
         pelanggan_id: user.id_pelanggan,
-        cabang_id: cabang ? parseInt(cabang) : 1,
+        cabang_id: cabangId,  // 🔥 Pakai dari useBranch
         layanan_id: parseInt(selectedService),
         slot_id: selectedSlotId,
         tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
@@ -379,6 +380,7 @@ const Booking = () => {
     setPaymentProofPreview(null);
   };
 
+  // 🔥 Handle Payment Confirm - UPDATED dengan useBranch
   const handlePaymentConfirm = async () => {
     if (selectedPayment !== 'cash' && !paymentProof) {
       toast({ 
@@ -391,7 +393,6 @@ const Booking = () => {
 
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
-    const cabang = localStorage.getItem('selected_cabang') || localStorage.getItem('selectedBranch');
 
     if (!user || !user.id_pelanggan) {
       toast({ 
@@ -404,6 +405,10 @@ const Booking = () => {
 
     const selectedServiceData = getSelectedServiceData();
     if (!selectedServiceData) return;
+
+    // 🔥 Ambil cabang_id dari currentBranch (useBranch)
+    const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
+    console.log('Current branch ID for payment:', cabangId);
 
     setLoading(true);
 
@@ -424,7 +429,7 @@ const Booking = () => {
       // Buat reservasi dengan status paid
       const response = await axiosInstance.post('/reservasi', {
         pelanggan_id: user.id_pelanggan,
-        cabang_id: cabang ? parseInt(cabang) : 1,
+        cabang_id: cabangId,  // 🔥 Pakai dari useBranch
         layanan_id: parseInt(selectedService),
         slot_id: selectedSlotId,
         tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
@@ -506,6 +511,15 @@ const Booking = () => {
         <div className="container mx-auto px-4">
           <h1 className="text-4xl font-bold text-center mb-2">Pesan Janji Temu Anda</h1>
           <p className="text-center text-gray-600 mb-12">Ikuti langkah-langkah di bawah ini untuk menjadwalkan kunjungan Anda</p>
+
+          {/* Info Cabang Aktif */}
+          <div className="max-w-4xl mx-auto mb-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+              <p className="text-sm text-amber-700">
+                📍 Booking untuk cabang: <span className="font-semibold">{currentBranch?.shortName || 'Rungkut'}</span>
+              </p>
+            </div>
+          </div>
 
           <div className="max-w-4xl mx-auto">
             {/* Progress Steps */}
@@ -641,162 +655,217 @@ const Booking = () => {
                   </>
                 )}
 
-                {step === 4 && (
-                  <>
-                    <h2 className="text-2xl font-bold mb-6">Konfirmasi Data Anda</h2>
-                    <div className="space-y-6">
-                      {/* Ringkasan Pemesanan */}
-                      <div className="bg-gradient-to-r from-barber-gold/10 to-transparent p-6 rounded-lg border-2 border-barber-gold/20">
-                        <h3 className="font-semibold text-lg mb-4 flex items-center">
-                          <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
-                          Ringkasan Pemesanan
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Layanan</p>
-                            <p className="font-medium">{selectedServiceData?.nama_layanan}</p>
-                            <p className="text-xs text-gray-400">{selectedServiceData?.durasi} menit</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Harga Layanan</p>
-                            <p className="font-medium text-barber-gold">{selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Tanggal & Waktu</p>
-                            <p className="font-medium">{date ? format(date, "d MMMM yyyy") : ''} - {selectedTime}</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Metode Pembayaran</p>
-                            <div className="flex items-center space-x-2">
-                              {getSelectedPaymentMethod() && (
-                                <>
-                                  {React.createElement(getSelectedPaymentMethod()?.icon || 'div', { 
-                                    className: `h-4 w-4 ${getSelectedPaymentMethod()?.color}` 
-                                  })}
-                                  <p className="font-medium">{getSelectedPaymentMethod()?.name}</p>
-                                </>
-                              )}
-                            </div>
-                          </div>
+              {step === 4 && (
+                <>
+                  <h2 className="text-2xl font-bold mb-6">Konfirmasi Data Anda</h2>
+                  <div className="space-y-6">
+                    {/* Ringkasan Pemesanan */}
+                    <div className="bg-gradient-to-r from-barber-gold/10 to-transparent p-6 rounded-lg border-2 border-barber-gold/20">
+                      <h3 className="font-semibold text-lg mb-4 flex items-center">
+                        <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
+                        Ringkasan Pemesanan
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-md shadow-sm">
+                          <p className="text-sm text-gray-500">Layanan</p>
+                          <p className="font-medium">{selectedServiceData?.nama_layanan}</p>
+                          <p className="text-xs text-gray-400">{selectedServiceData?.durasi} menit</p>
                         </div>
-                        
-                        {/* Total Pembayaran */}
-                        <div className="mt-4 pt-4 border-t-2 border-dashed border-barber-gold/30">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total Pembayaran</span>
-                            <span className="text-2xl font-bold text-barber-gold">
-                              {selectedServiceData && formatRupiah(selectedServiceData.harga)}
-                            </span>
+                        <div className="bg-white p-3 rounded-md shadow-sm">
+                          <p className="text-sm text-gray-500">Harga Layanan</p>
+                          <p className="font-medium text-barber-gold">{selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-md shadow-sm">
+                          <p className="text-sm text-gray-500">Tanggal & Waktu</p>
+                          <p className="font-medium">{date ? format(date, "d MMMM yyyy") : ''} - {selectedTime}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-md shadow-sm">
+                          <p className="text-sm text-gray-500">Metode Pembayaran</p>
+                          <div className="flex items-center space-x-2">
+                            {getSelectedPaymentMethod() && (
+                              <>
+                                {React.createElement(getSelectedPaymentMethod()?.icon || 'div', { 
+                                  className: `h-4 w-4 ${getSelectedPaymentMethod()?.color}` 
+                                })}
+                                <p className="font-medium">{getSelectedPaymentMethod()?.name}</p>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
-
-                      {/* Form Data Diri - AUTO FILL dari data user yang login */}
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-lg flex items-center">
-                          <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
-                          Data Diri
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="firstName">Nama Depan *</Label>
-                            <Input 
-                              id="firstName" 
-                              value={formData.firstName}
-                              onChange={handleInputChange}
-                              required 
-                              className="mt-1 bg-gray-50" 
-                              readOnly={!!localStorage.getItem('user')}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="lastName">Nama Belakang *</Label>
-                            <Input 
-                              id="lastName" 
-                              value={formData.lastName}
-                              onChange={handleInputChange}
-                              required 
-                              className="mt-1 bg-gray-50"
-                              readOnly={!!localStorage.getItem('user')}
-                            />
-                          </div>
+                      
+                      {/* Total Pembayaran */}
+                      <div className="mt-4 pt-4 border-t-2 border-dashed border-barber-gold/30">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold">Total Pembayaran</span>
+                          <span className="text-2xl font-bold text-barber-gold">
+                            {selectedServiceData && formatRupiah(selectedServiceData.harga)}
+                          </span>
                         </div>
-                        <div>
-                          <Label htmlFor="email">Email *</Label>
-                          <Input 
-                            id="email" 
-                            type="email" 
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            required 
-                            className="mt-1 bg-gray-50"
-                            readOnly={!!localStorage.getItem('user')}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="phone">Nomor Telepon *</Label>
-                          <Input 
-                            id="phone" 
-                            type="tel" 
-                            value={formData.phone}
-                            onChange={handleInputChange}
-                            required 
-                            className="mt-1 bg-gray-50"
-                            readOnly={!!localStorage.getItem('user')}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
-                          <Textarea 
-                            id="notes" 
-                            value={formData.notes}
-                            onChange={handleInputChange}
-                            placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input 
-                            type="checkbox" 
-                            id="terms" 
-                            className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
-                            required 
-                          />
-                          <Label htmlFor="terms" className="text-sm text-gray-500">
-                            Saya setuju dengan kebijakan pembatalan. Saya memahami bahwa pembatalan harus dilakukan minimal 24 jam sebelumnya.
-                          </Label>
-                        </div>
-
-                        {/* Tombol Aksi: Bayar Sekarang atau Simpan Reservasi */}
-                        <div className="flex gap-4 mt-6">
-                          <Button 
-                            onClick={handleProceedToPayment}
-                            className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
-                            disabled={loading}
-                          >
-                            {loading ? 'Memproses...' : 'Bayar Sekarang'}
-                          </Button>
-                          <Button 
-                            onClick={handleSaveReservation}
-                            variant="outline"
-                            className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
-                            disabled={loading}
-                          >
-                            <Clock className="mr-2 h-4 w-4" />
-                            {loading ? 'Memproses...' : 'Bayar Nanti'}
-                          </Button>
-                        </div>
-                        
-                        <Alert className="bg-blue-50 border-blue-200">
-                          <AlertCircle className="h-4 w-4 text-blue-600" />
-                          <AlertDescription className="text-xs text-blue-700">
-                            Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
-                          </AlertDescription>
-                        </Alert>
                       </div>
                     </div>
-                  </>
-                )}
+
+                    {/* 🔥 INFORMASI CABANG YANG DIPILIH */}
+                    <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+                      <h3 className="font-semibold text-lg mb-4 flex items-center text-blue-800">
+                        <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                        Lokasi Cabang
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="bg-blue-100 p-2 rounded-full">
+                            <Store className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-800">{currentBranch?.name || 'Seniman Barbershop'}</p>
+                            <p className="text-sm text-gray-600 mt-1">{currentBranch?.fullAddress || currentBranch?.address}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 p-2 rounded-full">
+                            <Phone className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <p className="text-sm text-gray-600">{currentBranch?.phone}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 p-2 rounded-full">
+                            <Clock className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            Jam Operasional: {currentBranch?.operationalHours.monday_friday.open} - {currentBranch?.operationalHours.monday_friday.close}
+                          </p>
+                        </div>
+                        {currentBranch?.features && currentBranch.features.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {currentBranch.features.slice(0, 3).map((feature, idx) => (
+                              <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                ✓ {feature}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <a 
+                          href={currentBranch?.mapsUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          📍 Buka di Google Maps
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Form Data Diri */}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-lg flex items-center">
+                        <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
+                        Data Diri
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="firstName">Nama Depan *</Label>
+                          <Input 
+                            id="firstName" 
+                            value={formData.firstName}
+                            onChange={handleInputChange}
+                            required 
+                            className="mt-1 bg-gray-50" 
+                            readOnly={!!localStorage.getItem('user')}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="lastName">Nama Belakang *</Label>
+                          <Input 
+                            id="lastName" 
+                            value={formData.lastName}
+                            onChange={handleInputChange}
+                            required 
+                            className="mt-1 bg-gray-50"
+                            readOnly={!!localStorage.getItem('user')}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email *</Label>
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          required 
+                          className="mt-1 bg-gray-50"
+                          readOnly={!!localStorage.getItem('user')}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">Nomor Telepon *</Label>
+                        <Input 
+                          id="phone" 
+                          type="tel" 
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          required 
+                          className="mt-1 bg-gray-50"
+                          readOnly={!!localStorage.getItem('user')}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
+                        <Textarea 
+                          id="notes" 
+                          value={formData.notes}
+                          onChange={handleInputChange}
+                          placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          id="terms" 
+                          className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
+                          required 
+                        />
+                        <Label htmlFor="terms" className="text-sm text-gray-500">
+                          Saya setuju dengan kebijakan pembatalan. Saya memahami bahwa pembatalan harus dilakukan minimal 24 jam sebelumnya.
+                        </Label>
+                      </div>
+
+                      {/* Tombol Aksi */}
+                      <div className="flex gap-4 mt-6">
+                        <Button 
+                          onClick={handleProceedToPayment}
+                          className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                          disabled={loading}
+                        >
+                          {loading ? 'Memproses...' : 'Bayar Sekarang'}
+                        </Button>
+                        <Button 
+                          onClick={handleSaveReservation}
+                          variant="outline"
+                          className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
+                          disabled={loading}
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
+                          {loading ? 'Memproses...' : 'Bayar Nanti'}
+                        </Button>
+                      </div>
+                      
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-xs text-blue-700">
+                          Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  </div>
+                </>
+              )}
 
                 {/* Navigation Buttons */}
                 <div className="flex justify-between mt-8 pt-4 border-t">
