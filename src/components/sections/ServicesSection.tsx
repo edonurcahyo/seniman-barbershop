@@ -1,29 +1,69 @@
-import React from 'react';
+// src/components/sections/ServicesSection.tsx
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ServiceCard from '@/components/ServiceCard';
 import { useBranch } from '@/context/BranchContext';
-import { baseServices, getAvailableServices } from '@/config/branches';
+import axiosInstance from '@/lib/axios';
+
+interface ServiceFromAPI {
+  id_layanan: number;
+  kode_layanan: string;
+  nama_layanan: string;
+  harga: number;
+  durasi: number;
+  deskripsi: string;
+  status: string;
+  gambar: string | null;
+}
 
 const ServicesSection = () => {
   const { currentBranch, formatPrice } = useBranch();
-  
-  // Mendapatkan layanan yang tersedia untuk cabang ini
-  const availableServices = getAvailableServices(currentBranch.id);
-  
-  // Menggunakan baseServices sebagai fallback jika availableServices kosong
-  const servicesToShow = availableServices.length > 0 ? availableServices : baseServices;
-  
-  // Memformat harga berdasarkan cabang yang dipilih
-  const services = servicesToShow.map(service => ({
-    ...service,
-    formattedPrice: formatPrice(service.basePrice),
-    // Menambahkan indikator jika layanan ini exclusive untuk cabang tertentu
-    isExclusive: 'exclusiveTo' in service && service.exclusiveTo === currentBranch.id
-  }));
+  const [services, setServices] = useState<ServiceFromAPI[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter untuk menampilkan hanya 3 layanan pertama di homepage (opsional)
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      const response = await axiosInstance.get('/layanan');
+      let servicesData = [];
+      if (response.data && response.data.data) {
+        servicesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        servicesData = response.data;
+      }
+      // Filter hanya yang status aktif
+      const activeServices = servicesData.filter((s: ServiceFromAPI) => s.status === 'aktif');
+      setServices(activeServices);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getImageUrl = (gambar: string | null) => {
+    if (!gambar) return 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
+    if (gambar.startsWith('http')) return gambar;
+    return `http://127.0.0.1:8000/storage/${gambar}`;
+  };
+
+  // Hanya tampilkan 3 layanan pertama di homepage
   const displayServices = services.slice(0, 3);
+
+  if (loading) {
+    return (
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memuat layanan...</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20 bg-gray-50">
@@ -36,7 +76,7 @@ const ServicesSection = () => {
             Kami menawarkan berbagai layanan perawatan untuk membuat Anda selalu tampil terbaik.
             {currentBranch.priceMultiplier !== 1.0 && (
               <span className="block text-sm text-barber-gold mt-2">
-                {/* *Harga untuk cabang {currentBranch.shortName} sudah termasuk biaya lokasi premium */}
+                *Harga untuk cabang {currentBranch.shortName} sudah termasuk biaya lokasi premium
               </span>
             )}
           </p>
@@ -44,33 +84,16 @@ const ServicesSection = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {displayServices.map((service) => (
-            <div key={service.id} className="relative">
-              {service.isExclusive && (
-                <div className="absolute top-4 right-4 z-10">
-                  <span className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold rounded-full">
-                    ✨ Eksklusif
-                  </span>
-                </div>
-              )}
-              <ServiceCard 
-                title={service.title}
-                price={service.formattedPrice}
-                description={service.description}
-                duration={service.duration}
-                image={service.image}
-              />
-            </div>
+            <ServiceCard 
+              key={service.id_layanan}
+              title={service.nama_layanan}
+              price={formatPrice(service.harga)}
+              description={service.deskripsi || 'Nikmati layanan terbaik dari barber profesional kami.'}
+              duration={`${service.durasi} menit`}
+              image={getImageUrl(service.gambar)}
+            />
           ))}
         </div>
-        
-        {/* Menampilkan pesan jika ada layanan eksklusif yang tidak ditampilkan di homepage */}
-        {services.length > 3 && (
-          <div className="text-center mt-8">
-            <p className="text-sm text-gray-500">
-              + {services.length - 3} layanan lainnya tersedia
-            </p>
-          </div>
-        )}
         
         <div className="text-center mt-12">
           <Link to="/services">
@@ -80,7 +103,7 @@ const ServicesSection = () => {
           </Link>
         </div>
 
-        {/* Informasi tambahan tentang harga (opsional) */}
+        {/* Informasi tambahan */}
         <div className="mt-16 p-4 bg-white rounded-lg border border-gray-200 max-w-2xl mx-auto">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const { toast } = useToast();
@@ -18,6 +19,8 @@ const Login = () => {
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Register state
   const [namaDepan, setNamaDepan] = useState("");
@@ -26,10 +29,25 @@ const Login = () => {
   const [phone, setPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Reset semua form saat component mount
   useEffect(() => {
     resetAllForms();
+    
+    // Cek apakah ada remember me data
+    const savedEmail = localStorage.getItem('remembered_email');
+    const savedPassword = localStorage.getItem('remembered_password');
+    const isRemembered = localStorage.getItem('remember_me') === 'true';
+    
+    if (isRemembered && savedEmail) {
+      setLoginEmail(savedEmail);
+      setRememberMe(true);
+      if (savedPassword) {
+        setLoginPassword(savedPassword);
+      }
+    }
   }, []);
 
   const resetAllForms = () => {
@@ -64,6 +82,17 @@ const Login = () => {
       localStorage.setItem("customer_name", userData.nama);
       localStorage.setItem("customer_phone", userData.no_hp || phone);
       localStorage.setItem("isLoggedIn", "true");
+      
+      // 🔥 Handle "Ingat Saya"
+      if (rememberMe) {
+        localStorage.setItem("remember_me", "true");
+        localStorage.setItem("remembered_email", loginEmail);
+        localStorage.setItem("remembered_password", loginPassword);
+      } else {
+        localStorage.removeItem("remember_me");
+        localStorage.removeItem("remembered_email");
+        localStorage.removeItem("remembered_password");
+      }
       
       // 🔥 Buat dan simpan token sederhana jika API tidak mengembalikan token
       if (res.data.token) {
@@ -188,14 +217,35 @@ const Login = () => {
                               Lupa Password?
                             </Link>
                           </div>
-                          <Input
-                            id="password"
-                            type="password"
-                            value={loginPassword}
-                            onChange={(e) => setLoginPassword(e.target.value)}
-                            autoComplete="new-password"
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              value={loginPassword}
+                              onChange={(e) => setLoginPassword(e.target.value)}
+                              autoComplete="new-password"
+                              required
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-barber-gold transition-colors"
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={rememberMe}
+                              onChange={(e) => setRememberMe(e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-600 cursor-pointer">Ingat Saya</span>
+                          </label>
                         </div>
                         <Button type="submit" className="w-full bg-barber-brown hover:bg-barber-brown/90">
                           Login
@@ -203,29 +253,17 @@ const Login = () => {
                       </div>
                     </form>
                   </CardContent>
-                  <CardFooter className="flex flex-col">
-                    <div className="relative w-full my-4">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300"></div>
-                      </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">Atau lanjutkan dengan</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 w-full">
-                      <Button variant="outline" type="button" className="w-full">
-                        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M20.283 10.356h-8.327v3.451h4.792c-.446 2.193-2.313 3.453-4.792 3.453a5.27 5.27 0 0 1-5.279-5.28 5.27 5.27 0 0 1 5.279-5.279c1.259 0 2.397.447 3.29 1.178l2.6-2.599c-1.584-1.381-3.615-2.233-5.89-2.233a8.908 8.908 0 0 0-8.934 8.934 8.907 8.907 0 0 0 8.934 8.934c4.467 0 8.529-3.249 8.529-8.934 0-.528-.081-1.097-.202-1.625z" fill="currentColor"/>
-                        </svg>
-                        Google
-                      </Button>
-                      <Button variant="outline" type="button" className="w-full">
-                        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M20 12C20 7.581 16.419 4 12 4C7.58096 4 4 7.581 4 12C4 15.966 6.91655 19.256 10.75 19.9V14.25H8.5V12H10.75V10.357C10.75 8.354 11.9837 7.25 13.7417 7.25C14.5837 7.25 15.4378 7.4 15.4378 7.4V9.6H14.4344C13.4483 9.6 13.25 10.245 13.25 10.9103V12H15.3662L15.1207 14.25H13.25V19.9C17.0832 19.256 20 15.966 20 12Z" fill="currentColor"/>
-                        </svg>
-                        Facebook
-                      </Button>
-                    </div>
+                  <CardFooter className="flex flex-col pt-0">
+                    <p className="text-center text-sm text-gray-500 mt-4">
+                      Belum punya akun?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("register")}
+                        className="text-barber-gold hover:underline font-medium"
+                      >
+                        Daftar di sini
+                      </button>
+                    </p>
                   </CardFooter>
                 </Card>
               </TabsContent>
@@ -288,25 +326,45 @@ const Login = () => {
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="regPassword">Password</Label>
-                          <Input
-                            id="regPassword"
-                            type="password"
-                            value={regPassword}
-                            onChange={(e) => setRegPassword(e.target.value)}
-                            autoComplete="new-password"
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              id="regPassword"
+                              type={showRegPassword ? "text" : "password"}
+                              value={regPassword}
+                              onChange={(e) => setRegPassword(e.target.value)}
+                              autoComplete="new-password"
+                              required
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRegPassword(!showRegPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-barber-gold transition-colors"
+                            >
+                              {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="confirmPassword">Confirm Password</Label>
-                          <Input
-                            id="confirmPassword"
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            autoComplete="new-password"
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              id="confirmPassword"
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              autoComplete="new-password"
+                              required
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-barber-gold transition-colors"
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <input
@@ -332,6 +390,18 @@ const Login = () => {
                       </div>
                     </form>
                   </CardContent>
+                  <CardFooter className="flex flex-col pt-0">
+                    <p className="text-center text-sm text-gray-500 mt-4">
+                      Sudah punya akun?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("login")}
+                        className="text-barber-gold hover:underline font-medium"
+                      >
+                        Login di sini
+                      </button>
+                    </p>
+                  </CardFooter>
                 </Card>
               </TabsContent>
             </Tabs>

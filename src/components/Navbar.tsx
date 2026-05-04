@@ -1,47 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
-import { Menu, User, LogOut } from 'lucide-react';
+import { Menu, User, LogOut, Shield } from 'lucide-react';
 import BranchSelector from './BranchSelector';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userName, setUserName] = useState('');
   const navigate = useNavigate();
 
-  // Cek status login saat component mount dan saat storage berubah
   useEffect(() => {
     checkLoginStatus();
-    
-    // Listen untuk perubahan localStorage (misal dari tab lain)
     window.addEventListener('storage', checkLoginStatus);
-    
     return () => {
       window.removeEventListener('storage', checkLoginStatus);
     };
   }, []);
 
   const checkLoginStatus = () => {
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    // Cek admin login
+    const isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+    const adminStr = localStorage.getItem('admin');
+    
+    // Cek customer login
+    const isCustomerLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     const userStr = localStorage.getItem('user');
     
-    setIsLoggedIn(loggedIn);
-    
-    if (loggedIn && userStr) {
+    if (isAdminLoggedIn && adminStr) {
+      setIsLoggedIn(true);
+      setIsAdmin(true);
+      try {
+        const admin = JSON.parse(adminStr);
+        setUserName(admin.nama || 'Admin');
+      } catch (error) {
+        console.error('Error parsing admin data:', error);
+      }
+    } else if (isCustomerLoggedIn && userStr) {
+      setIsLoggedIn(true);
+      setIsAdmin(false);
       try {
         const user = JSON.parse(userStr);
-        // Ambil nama user (sesuaikan dengan response API)
-        const name = user.nama || user.name || `${user.nama_depan || ''} ${user.nama_belakang || ''}`.trim() || 'User';
+        const name = user.nama || user.name || 'User';
         setUserName(name);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
+    } else {
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setUserName('');
     }
   };
 
   const handleLogout = () => {
-    // Hapus semua data session
+    // Hapus data customer
     localStorage.removeItem('user');
     localStorage.removeItem('customer_email');
     localStorage.removeItem('customer_name');
@@ -49,15 +63,24 @@ const Navbar = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('customer_phone');
     
+    // Hapus data admin
+    localStorage.removeItem('admin');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('isAdminLoggedIn');
+    
     setIsLoggedIn(false);
+    setIsAdmin(false);
     setUserName('');
     
-    // Redirect ke halaman login
     navigate('/login');
   };
 
   const handleProfileClick = () => {
-    navigate('/customer');
+    if (isAdmin) {
+      navigate('/admin');
+    } else {
+      navigate('/customer');
+    }
   };
 
   return (
@@ -71,7 +94,6 @@ const Navbar = () => {
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {/* Branch Selector */}
             <BranchSelector />
             
             <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
@@ -80,24 +102,27 @@ const Navbar = () => {
             
             {isLoggedIn ? (
               <div className="flex items-center space-x-4">
-                {/* Profile Button dengan nama */}
+                {/* Profile Button */}
                 <button
                   onClick={handleProfileClick}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-barber-cream transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-barber-gold flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isAdmin ? 'bg-red-600' : 'bg-barber-gold'}`}>
+                    {isAdmin ? <Shield className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
                   </div>
                   <span className="text-sm font-medium text-gray-700 hidden lg:inline">
-                    {userName.split(' ')[0]}
+                    {isAdmin ? `Admin: ${userName.split(' ')[0]}` : userName.split(' ')[0]}
                   </span>
                 </button>
                 
-                <Link to="/booking">
-                  <Button className="bg-barber-gold hover:bg-barber-gold/90 text-black">
-                    Pesan Sekarang
-                  </Button>
-                </Link>
+                {/* 🔥 Tombol "Pesan Sekarang" hanya untuk customer (bukan admin) */}
+                {!isAdmin && (
+                  <Link to="/booking">
+                    <Button className="bg-barber-gold hover:bg-barber-gold/90 text-black">
+                      Pesan Sekarang
+                    </Button>
+                  </Link>
+                )}
                 
                 {/* Logout Button */}
                 <button
@@ -160,9 +185,19 @@ const Navbar = () => {
                       }}
                       className="px-3 py-2 rounded-md hover:bg-gray-100 flex items-center w-full text-left"
                     >
-                      <User className="h-4 w-4 mr-2" />
-                      Profile saya ({userName})
+                      {isAdmin ? <Shield className="h-4 w-4 mr-2" /> : <User className="h-4 w-4 mr-2" />}
+                      {isAdmin ? `Admin: ${userName}` : `Profile: ${userName}`}
                     </button>
+                    
+                    {/* 🔥 Tombol "Pesan Janji" hanya untuk customer (bukan admin) */}
+                    {!isAdmin && (
+                      <Link to="/booking" onClick={() => setIsMenuOpen(false)}>
+                        <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
+                          Pesan Janji
+                        </Button>
+                      </Link>
+                    )}
+                    
                     <button
                       onClick={() => {
                         setIsMenuOpen(false);
@@ -173,11 +208,6 @@ const Navbar = () => {
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout
                     </button>
-                    <Link to="/booking">
-                      <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
-                        Pesan Janji
-                      </Button>
-                    </Link>
                   </div>
                 ) : (
                   <div className="flex flex-col space-y-3">

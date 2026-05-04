@@ -20,7 +20,7 @@ import {
   CreditCard, Wallet, Landmark, QrCode, TrendingUp, Clock, 
   CheckCircle2, XCircle, AlertCircle, FileText, FileSpreadsheet, 
   Download, Printer, LogOut, UserCircle, Save, XCircle as XCircleIcon,
-  Search, Filter, Upload, Image as ImageIcon
+  Search, Filter, Upload, Image as ImageIcon, Banknote, Upload as UploadIcon
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -131,6 +131,19 @@ const Admin = () => {
   const [savingService, setSavingService] = useState(false);
   const [deletingServiceId, setDeletingServiceId] = useState<number | null>(null);
 
+  // Payment Settings states
+  const [paymentSettings, setPaymentSettings] = useState({
+    bank_bca: '',
+    bank_mandiri: '',
+    bank_bni: '',
+    bank_bri: '',
+    qr_code: null as string | null
+  });
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [selectedCabangForPayment, setSelectedCabangForPayment] = useState('1');
+
   // Cek auth admin
   useEffect(() => {
     const checkAdminAuth = async () => {
@@ -149,6 +162,13 @@ const Admin = () => {
     checkAdminAuth();
   }, []);
 
+  // Fetch payment settings when tab changes
+  useEffect(() => {
+    if (activeTab === 'payments') {
+      fetchPaymentSettings();
+    }
+  }, [activeTab, selectedCabangForPayment]);
+
   const fetchAdminProfile = async () => {
     try {
       const response = await axiosInstance.get('/admin/profile');
@@ -166,6 +186,77 @@ const Admin = () => {
       console.error('Error fetching admin profile:', error);
       navigate('/admin/login');
     }
+  };
+
+  const fetchPaymentSettings = async () => {
+    try {
+      const response = await axiosInstance.get('/payment-settings', {
+        params: { cabang_id: selectedCabangForPayment }
+      });
+      if (response.data && response.data.data) {
+        setPaymentSettings({
+          bank_bca: response.data.data.bank_bca || '',
+          bank_mandiri: response.data.data.bank_mandiri || '',
+          bank_bni: response.data.data.bank_bni || '',
+          bank_bri: response.data.data.bank_bri || '',
+          qr_code: response.data.data.qr_code || null
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching payment settings:', error);
+    }
+  };
+
+  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({ variant: "destructive", title: "Error", description: "Harap upload file gambar" });
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ variant: "destructive", title: "Error", description: "Ukuran file maksimal 2MB" });
+        return;
+      }
+      setQrFile(file);
+      setQrPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSavePaymentSettings = async () => {
+    setSavingPayment(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('cabang_id', selectedCabangForPayment);
+      if (paymentSettings.bank_bca) formData.append('bank_bca', paymentSettings.bank_bca);
+      if (paymentSettings.bank_mandiri) formData.append('bank_mandiri', paymentSettings.bank_mandiri);
+      if (paymentSettings.bank_bni) formData.append('bank_bni', paymentSettings.bank_bni);
+      if (paymentSettings.bank_bri) formData.append('bank_bri', paymentSettings.bank_bri);
+      if (qrFile) formData.append('qr_code', qrFile);
+      
+      const response = await axiosInstance.post('/payment-settings', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (response.data.success) {
+        toast({ title: "Berhasil", description: "Pengaturan pembayaran disimpan" });
+        fetchPaymentSettings();
+        setQrFile(null);
+        setQrPreview(null);
+      }
+    } catch (error: any) {
+      console.error('Error saving payment settings:', error);
+      toast({ variant: "destructive", title: "Gagal", description: error.response?.data?.message || "Terjadi kesalahan" });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const getQrImageUrl = (qrCode: string | null) => {
+    if (!qrCode) return null;
+    if (qrCode.startsWith('http')) return qrCode;
+    return `http://127.0.0.1:8000/storage/${qrCode}`;
   };
 
   const loadAllData = async () => {
@@ -450,9 +541,7 @@ const Admin = () => {
 
   const getImageUrl = (gambar: string | null) => {
     if (!gambar) return null;
-    // Jika gambar sudah URL lengkap
     if (gambar.startsWith('http')) return gambar;
-    // Jika gambar dari storage
     return `http://127.0.0.1:8000/storage/${gambar}`;
   };
 
@@ -485,6 +574,86 @@ const Admin = () => {
     { name: 'Transfer', value: reservations.filter(r => r.metode_pembayaran === 'transfer').length, color: '#3b82f6' },
     { name: 'QRIS', value: reservations.filter(r => r.metode_pembayaran === 'qris').length, color: '#f97316' },
   ];
+
+  // Export functions
+  const exportToPDF = () => {
+    const filteredData = getFilteredReservations();
+    const doc = new jsPDF('landscape');
+    
+    doc.setFontSize(20);
+    doc.setTextColor(245, 158, 11);
+    doc.text('Laporan Transaksi Reservasi', 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Periode: ${dateRange.start || 'Awal'} - ${dateRange.end || 'Sekarang'}`, 14, 35);
+    doc.text(`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, 14, 42);
+    doc.text(`Total Transaksi: ${filteredData.length}`, 14, 49);
+    
+    const totalAmount = filteredData.reduce((sum, t) => sum + t.total_harga, 0);
+    doc.text(`Total Pendapatan: ${formatRupiah(totalAmount)}`, 14, 56);
+    
+    doc.autoTable({
+      startY: 65,
+      head: [['Kode', 'Pelanggan', 'Layanan', 'Cabang', 'Tanggal', 'Waktu', 'Metode', 'Total', 'Status']],
+      body: filteredData.map(r => [
+        r.kode_reservasi,
+        r.pelanggan_nama || '-',
+        r.layanan_nama,
+        r.cabang_nama || '-',
+        formatDate(r.tanggal_reservasi),
+        r.waktu,
+        r.metode_pembayaran,
+        formatRupiah(r.total_harga),
+        r.status === 'pending' ? 'Menunggu' : r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
+      styles: { fontSize: 8, cellPadding: 3 }
+    });
+    
+    doc.save(`laporan_reservasi_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const exportToExcel = () => {
+    const filteredData = getFilteredReservations();
+    
+    const worksheetData = filteredData.map(r => ({
+      'Kode Reservasi': r.kode_reservasi,
+      'Pelanggan': r.pelanggan_nama || '-',
+      'Layanan': r.layanan_nama,
+      'Cabang': r.cabang_nama || '-',
+      'Tanggal': formatDate(r.tanggal_reservasi),
+      'Waktu': r.waktu,
+      'Metode Pembayaran': r.metode_pembayaran,
+      'Total': r.total_harga,
+      'Status': r.status === 'pending' ? 'Menunggu' : r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
+    }));
+    
+    const totalAmount = filteredData.reduce((sum, r) => sum + r.total_harga, 0);
+    worksheetData.push({
+      'Kode Reservasi': 'TOTAL',
+      'Pelanggan': '',
+      'Layanan': '',
+      'Cabang': '',
+      'Tanggal': '',
+      'Waktu': '',
+      'Metode Pembayaran': '',
+      'Total': totalAmount,
+      'Status': ''
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(worksheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan Reservasi');
+    
+    ws['!cols'] = [
+      { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+      { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+    ];
+    
+    XLSX.writeFile(wb, `laporan_reservasi_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   if (loading) {
     return (
@@ -533,11 +702,13 @@ const Admin = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="appointments">Reservasi</TabsTrigger>
               <TabsTrigger value="services">Layanan</TabsTrigger>
               <TabsTrigger value="customers">Pelanggan</TabsTrigger>
+              <TabsTrigger value="reports">Laporan</TabsTrigger>
+              <TabsTrigger value="payments">Pembayaran</TabsTrigger>
             </TabsList>
 
             {/* DASHBOARD TAB */}
@@ -822,6 +993,85 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
+            {/* REPORTS TAB */}
+            <TabsContent value="reports" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Export Laporan Reservasi</CardTitle>
+                  <CardDescription>Export data reservasi ke berbagai format</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                      <Label>Periode Mulai</Label>
+                      <Input 
+                        type="date" 
+                        value={dateRange.start}
+                        onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label>Periode Akhir</Label>
+                      <Input 
+                        type="date" 
+                        value={dateRange.end}
+                        onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                      />
+                    </div>
+                    <div className="w-48">
+                      <Label>Format Export</Label>
+                      <Select value={exportFormat} onValueChange={setExportFormat}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pdf">PDF Document</SelectItem>
+                          <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={exportFormat === 'pdf' ? exportToPDF : exportToExcel} className="bg-amber-600 hover:bg-amber-700">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Laporan
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <h3 className="font-semibold mb-3">Preview Data</h3>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Kode</TableHead>
+                            <TableHead>Pelanggan</TableHead>
+                            <TableHead>Layanan</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getFilteredReservations().slice(0, 5).map((reservation) => (
+                            <TableRow key={reservation.id_reservasi}>
+                              <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
+                              <TableCell>{reservation.pelanggan_nama || '-'}</TableCell>
+                              <TableCell>{reservation.layanan_nama}</TableCell>
+                              <TableCell>{formatDate(reservation.tanggal_reservasi)}</TableCell>
+                              <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
+                              <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {getFilteredReservations().length === 0 && (
+                      <p className="text-center text-gray-500 py-4">Tidak ada data</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* CUSTOMERS TAB */}
             <TabsContent value="customers" className="space-y-6">
               <Card>
@@ -859,6 +1109,127 @@ const Admin = () => {
                   {customers.length === 0 && (
                     <div className="text-center py-8 text-gray-500">Tidak ada data pelanggan</div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* PAYMENT SETTINGS TAB */}
+            <TabsContent value="payments" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pengaturan Pembayaran</CardTitle>
+                  <CardDescription>Kelola rekening bank dan QR code untuk pembayaran</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Pilih Cabang */}
+                  <div className="space-y-2">
+                    <Label>Pilih Cabang</Label>
+                    <Select value={selectedCabangForPayment} onValueChange={setSelectedCabangForPayment}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder="Pilih cabang" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Seniman Barbershop Rungkut</SelectItem>
+                        <SelectItem value="2">Seniman Barbershop Pondok Tjandra</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Rekening Bank */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 border-b pb-2">
+                        <Banknote className="h-5 w-5 text-blue-600" />
+                        <h3 className="font-semibold">Rekening Bank</h3>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>BCA</Label>
+                        <Input
+                          placeholder="Nomor Rekening BCA (contoh: 1234567890 a.n. Seniman)"
+                          value={paymentSettings.bank_bca}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bca: e.target.value })}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Mandiri</Label>
+                        <Input
+                          placeholder="Nomor Rekening Mandiri"
+                          value={paymentSettings.bank_mandiri}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_mandiri: e.target.value })}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>BNI</Label>
+                        <Input
+                          placeholder="Nomor Rekening BNI"
+                          value={paymentSettings.bank_bni}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bni: e.target.value })}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>BRI</Label>
+                        <Input
+                          placeholder="Nomor Rekening BRI"
+                          value={paymentSettings.bank_bri}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bri: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* QR Code */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 border-b pb-2">
+                        <QrCode className="h-5 w-5 text-orange-600" />
+                        <h3 className="font-semibold">QRIS Code</h3>
+                      </div>
+                      
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                        {qrPreview || getQrImageUrl(paymentSettings.qr_code) ? (
+                          <div className="space-y-3">
+                            <img 
+                              src={qrPreview || getQrImageUrl(paymentSettings.qr_code)} 
+                              alt="QR Code"
+                              className="w-48 h-48 object-contain mx-auto border rounded-lg"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setQrFile(null);
+                                setQrPreview(null);
+                              }}
+                            >
+                              Ganti QR Code
+                            </Button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer flex flex-col items-center justify-center py-8">
+                            <UploadIcon className="h-12 w-12 text-gray-400 mb-2" />
+                            <span className="text-sm text-gray-500">Klik untuk upload QR Code</span>
+                            <span className="text-xs text-gray-400">Format: JPG, PNG (Max 2MB)</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleQrUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleSavePaymentSettings} 
+                    disabled={savingPayment}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    {savingPayment ? 'Menyimpan...' : 'Simpan Pengaturan'}
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
