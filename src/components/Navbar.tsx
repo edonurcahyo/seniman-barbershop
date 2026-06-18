@@ -98,7 +98,7 @@ const Navbar = () => {
             
             <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
             <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Layanan</Link>
-            <Link to="/contact" className="font-medium hover:text-barber-gold transition-colors">Kontak</Link>
+            {/* <Link to="/contact" className="font-medium hover:text-barber-gold transition-colors">Kontak</Link> */}
             
             {isLoggedIn ? (
               <div className="flex items-center space-x-4">
@@ -173,7 +173,7 @@ const Navbar = () => {
               
               <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Beranda</Link>
               <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Layanan</Link>
-              <Link to="/contact" className="px-3 py-2 rounded-md hover:bg-gray-100">Kontak</Link>
+              {/* <Link to="/contact" className="px-3 py-2 rounded-md hover:bg-gray-100">Kontak</Link> */}
               
               <div className="pt-2 border-t">
                 {isLoggedIn ? (

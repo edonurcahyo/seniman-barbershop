@@ -1,6 +1,7 @@
 // src/pages/Admin.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBranch } from '@/context/BranchContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ interface ReservationData {
   total_harga: number;
   status: string;
   metode_pembayaran: string;
+  bukti_pembayaran?: string;
   created_at: string;
 }
 
@@ -81,6 +83,7 @@ interface ServiceData {
 const Admin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { currentBranch } = useBranch();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [exportFormat, setExportFormat] = useState('pdf');
@@ -266,7 +269,8 @@ const Admin = () => {
         fetchDashboardStats(),
         fetchReservations(),
         fetchCustomers(),
-        fetchServices()
+        fetchServices(),
+        fetchMonthlyRevenue()
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -277,7 +281,12 @@ const Admin = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await axiosInstance.get('/admin/dashboard');
+      const params: any = {};
+      if (currentBranch?.id) {
+        params.cabang_id = currentBranch.id;
+      }
+      
+      const response = await axiosInstance.get('/admin/dashboard', { params });
       if (response.data) {
         setDashboardStats(response.data);
       }
@@ -288,7 +297,12 @@ const Admin = () => {
 
   const fetchReservations = async () => {
     try {
-      const response = await axiosInstance.get('/admin/reservasi');
+      const params: any = {};
+      if (currentBranch?.id) {
+        params.cabang_id = currentBranch.id;
+      }
+      
+      const response = await axiosInstance.get('/admin/reservasi', { params });
       if (response.data && response.data.data) {
         setReservations(response.data.data);
       } else if (Array.isArray(response.data)) {
@@ -298,6 +312,14 @@ const Admin = () => {
       console.error('Error fetching reservations:', error);
     }
   };
+
+  useEffect(() => {
+    if (currentBranch?.id && !loading) {
+      fetchReservations();
+      fetchDashboardStats();
+      fetchMonthlyRevenue();
+    }
+  }, [currentBranch?.id]);
 
   const fetchCustomers = async () => {
     try {
@@ -322,6 +344,23 @@ const Admin = () => {
       }
     } catch (error) {
       console.error('Error fetching services:', error);
+    }
+  };
+
+  const fetchMonthlyRevenue = async () => {
+    try {
+      const params: any = {};
+      if (currentBranch?.id) {
+        params.cabang_id = currentBranch.id;
+      }
+      
+      const response = await axiosInstance.get('/admin/revenue-monthly', { params });
+      if (response.data && response.data.data) {
+        setRevenueChartData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly revenue:', error);
+      // Jika error, tetap gunakan data yang sudah ada
     }
   };
 
@@ -531,6 +570,12 @@ const Admin = () => {
     }
   };
 
+  const getBuktiUrl = (bukti: string | undefined) => {
+    if (!bukti) return null;
+    if (bukti.startsWith('http')) return bukti;
+    return `http://127.0.0.1:8000/storage/${bukti}`;
+  };
+
   const formatRupiah = (amount: number) => {
     return `Rp. ${amount.toLocaleString('id-ID')}`;
   };
@@ -560,14 +605,14 @@ const Admin = () => {
   };
 
   // Revenue chart data
-  const revenueData = [
-    { month: 'Jan', revenue: 12500000 },
-    { month: 'Feb', revenue: 14200000 },
-    { month: 'Mar', revenue: 13800000 },
-    { month: 'Apr', revenue: dashboardStats.monthlyRevenue || 15420000 },
-    { month: 'Mei', revenue: 16200000 },
-    { month: 'Jun', revenue: 17100000 },
-  ];
+  const [revenueChartData, setRevenueChartData] = useState([
+    { month: 'Jan', revenue: 0 },
+    { month: 'Feb', revenue: 0 },
+    { month: 'Mar', revenue: 0 },
+    { month: 'Apr', revenue: 0 },
+    { month: 'Mei', revenue: 0 },
+    { month: 'Jun', revenue: 0 },
+  ]);
 
   const paymentMethodData = [
     { name: 'Tunai', value: reservations.filter(r => r.metode_pembayaran === 'cash').length, color: '#10b981' },
@@ -680,6 +725,13 @@ const Admin = () => {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Admin</h1>
               <p className="text-gray-600">Selamat datang, {adminData?.nama}</p>
+              {/* 🔥 TAMPILKAN CABANG YANG SEDANG DIPILIH */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-gray-500">Cabang:</span>
+                <span className="text-sm font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                  {currentBranch?.name || 'Semua Cabang'}
+                </span>
+              </div>
             </div>
             <div className="flex gap-3">
               <Button 
@@ -765,14 +817,38 @@ const Admin = () => {
                   <CardContent>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={revenueData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis tickFormatter={(value) => `Rp${value/1000000}jt`} />
-                          <Tooltip formatter={(value) => formatRupiah(Number(value))} />
-                          <Legend />
-                          <Line type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} name="Pendapatan" />
-                        </LineChart>
+                       <LineChart data={revenueChartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        
+                        {/* 🔥 Y-Axis - Format penuh dengan pemisah ribuan */}
+                        <YAxis 
+                          tickFormatter={(value) => `Rp${value.toLocaleString('id-ID')}`}
+                          width={90}  // 🔥 TAMBAHKAN INI - beri ruang untuk label
+                          domain={[0, 'dataMax + dataMax * 0.1']}  // 🔥 TAMBAHKAN INI - beri jarak dari atas
+                        />
+                      
+                        {/* 🔥 Tooltip - Format penuh */}
+                        <Tooltip 
+                          formatter={(value) => {
+                            return new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0
+                            }).format(Number(value));
+                          }} 
+                        />
+                        
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="revenue" 
+                          stroke="#f59e0b" 
+                          strokeWidth={2} 
+                          name="Pendapatan" 
+                        />
+                      </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
@@ -857,6 +933,7 @@ const Admin = () => {
                           <TableHead>Waktu</TableHead>
                           <TableHead>Total</TableHead>
                           <TableHead>Metode</TableHead>
+                          <TableHead>Bukti</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Aksi</TableHead>
                         </TableRow>
@@ -876,6 +953,22 @@ const Admin = () => {
                                 {getPaymentMethodIcon(reservation.metode_pembayaran)}
                                 <span className="capitalize text-sm">{reservation.metode_pembayaran}</span>
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              {reservation.bukti_pembayaran ? (
+                                <img 
+                                  src={getBuktiUrl(reservation.bukti_pembayaran)} 
+                                  alt="Bukti Pembayaran"
+                                  className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => {
+                                    const url = getBuktiUrl(reservation.bukti_pembayaran);
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  title="Klik untuk melihat bukti pembayaran"
+                                />
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
                             </TableCell>
                             <TableCell>{getStatusBadge(reservation.status)}</TableCell>
                             <TableCell>

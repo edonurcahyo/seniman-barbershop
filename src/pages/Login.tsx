@@ -22,9 +22,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Register state
-  const [namaDepan, setNamaDepan] = useState("");
-  const [namaBelakang, setNamaBelakang] = useState("");
+  // 🔥 Register state - SATU FIELD NAMA (bukan nama_depan + nama_belakang)
+  const [namaLengkap, setNamaLengkap] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -55,9 +54,8 @@ const Login = () => {
     setLoginEmail("");
     setLoginPassword("");
     
-    // Reset register form
-    setNamaDepan("");
-    setNamaBelakang("");
+    // 🔥 Reset register form - SATU FIELD NAMA
+    setNamaLengkap("");
     setRegEmail("");
     setPhone("");
     setRegPassword("");
@@ -73,17 +71,17 @@ const Login = () => {
         password: loginPassword,
       });
 
-      // 🔥 Ambil data user dari response
+      // Ambil data user dari response
       const userData = res.data.user;
       
-      // 🔥 Simpan data user ke localStorage
+      // Simpan data user ke localStorage
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("customer_email", userData.email);
       localStorage.setItem("customer_name", userData.nama);
       localStorage.setItem("customer_phone", userData.no_hp || phone);
       localStorage.setItem("isLoggedIn", "true");
       
-      // 🔥 Handle "Ingat Saya"
+      // Handle "Ingat Saya"
       if (rememberMe) {
         localStorage.setItem("remember_me", "true");
         localStorage.setItem("remembered_email", loginEmail);
@@ -94,16 +92,15 @@ const Login = () => {
         localStorage.removeItem("remembered_password");
       }
       
-      // 🔥 Buat dan simpan token sederhana jika API tidak mengembalikan token
+      // Buat dan simpan token sederhana jika API tidak mengembalikan token
       if (res.data.token) {
         localStorage.setItem("auth_token", res.data.token);
       } else {
-        // Buat token dummy berdasarkan email dan timestamp
         const dummyToken = btoa(userData.email + ":" + Date.now());
         localStorage.setItem("auth_token", dummyToken);
       }
       
-      // 🔥 Simpan juga branch default (jika ada)
+      // Simpan juga branch default (jika ada)
       if (!localStorage.getItem('selected_cabang')) {
         localStorage.setItem('selected_cabang', '1');
       }
@@ -126,8 +123,18 @@ const Login = () => {
     }
   };
 
+  // 🔥 Handle Register - SATU FIELD NAMA
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!namaLengkap.trim()) {
+      toast({
+        title: "Gagal",
+        description: "Nama lengkap harus diisi.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (regPassword !== confirmPassword) {
       toast({
@@ -140,7 +147,7 @@ const Login = () => {
 
     try {
       const response = await axios.post("http://127.0.0.1:8000/api/register", {
-        nama: namaDepan + " " + namaBelakang,
+        nama: namaLengkap,  // 🔥 Kirim nama lengkap (bukan nama_depan + nama_belakang)
         email: regEmail,
         password: regPassword,
         no_hp: phone,
@@ -154,8 +161,7 @@ const Login = () => {
       });
 
       // Reset form register
-      setNamaDepan("");
-      setNamaBelakang("");
+      setNamaLengkap("");
       setRegEmail("");
       setPhone("");
       setRegPassword("");
@@ -276,30 +282,20 @@ const Login = () => {
                   <CardContent>
                     <form onSubmit={handleRegister}>
                       <div className="grid gap-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="firstName">Nama depan</Label>
-                            <Input
-                              id="firstName"
-                              placeholder="nama depan"
-                              value={namaDepan}
-                              onChange={(e) => setNamaDepan(e.target.value)}
-                              autoComplete="off"
-                              required
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="lastName">Nama belakang</Label>
-                            <Input
-                              id="lastName"
-                              placeholder="nama belakang"
-                              value={namaBelakang}
-                              onChange={(e) => setNamaBelakang(e.target.value)}
-                              autoComplete="off"
-                              required
-                            />
-                          </div>
+                        {/* 🔥 SATU INPUT UNTUK NAMA LENGKAP (bukan 2 input) */}
+                        <div className="grid gap-2">
+                          <Label htmlFor="namaLengkap">Nama Lengkap</Label>
+                          <Input
+                            id="namaLengkap"
+                            type="text"
+                            placeholder="Masukkan nama lengkap Anda"
+                            value={namaLengkap}
+                            onChange={(e) => setNamaLengkap(e.target.value)}
+                            autoComplete="off"
+                            required
+                          />
                         </div>
+                        
                         <div className="grid gap-2">
                           <Label htmlFor="regEmail">Email</Label>
                           <Input
@@ -312,6 +308,7 @@ const Login = () => {
                             required
                           />
                         </div>
+                        
                         <div className="grid gap-2">
                           <Label htmlFor="phone">No HP</Label>
                           <Input
@@ -324,6 +321,7 @@ const Login = () => {
                             required
                           />
                         </div>
+                        
                         <div className="grid gap-2">
                           <Label htmlFor="regPassword">Password</Label>
                           <div className="relative">
@@ -345,6 +343,7 @@ const Login = () => {
                             </button>
                           </div>
                         </div>
+                        
                         <div className="grid gap-2">
                           <Label htmlFor="confirmPassword">Confirm Password</Label>
                           <div className="relative">
@@ -366,6 +365,7 @@ const Login = () => {
                             </button>
                           </div>
                         </div>
+                        
                         <div className="flex items-center space-x-2">
                           <input
                             type="checkbox"
@@ -384,6 +384,7 @@ const Login = () => {
                             </Link>
                           </Label>
                         </div>
+                        
                         <Button type="submit" className="w-full bg-barber-brown hover:bg-barber-brown/90">
                           Register
                         </Button>

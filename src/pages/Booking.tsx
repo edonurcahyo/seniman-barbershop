@@ -1,4 +1,5 @@
-// src/pages/Booking.tsx
+// src/pages/Booking.tsx - VERSI DENGAN FIELD NAMA (SATU FIELD)
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -98,10 +99,9 @@ const Booking = () => {
     qr_code: null
   });
   
-  // Form data
+  // 🔥 FORM DATA - SATU FIELD NAMA
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    nama: '',
     email: '',
     phone: '',
     notes: ''
@@ -135,7 +135,7 @@ const Booking = () => {
     { bank: 'BRI', accountNumber: paymentSettings.bank_bri, accountName: 'Seniman Barbershop' }
   ].filter(bank => bank.accountNumber);
 
-  // FUNGSI UNTUK LOAD DATA USER YANG LOGIN
+  // 🔥 FUNGSI UNTUK LOAD DATA USER YANG LOGIN - SATU FIELD NAMA
   const loadUserData = () => {
     const userStr = localStorage.getItem('user');
     console.log('User data from localStorage:', userStr);
@@ -144,22 +144,15 @@ const Booking = () => {
       try {
         const user = JSON.parse(userStr);
         
-        const fullName = user.nama || '';
-        const nameParts = fullName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
         setFormData({
-          firstName: firstName,
-          lastName: lastName,
+          nama: user.nama || '',  // 🔥 Langsung ambil nama lengkap
           email: user.email || '',
           phone: user.no_hp || user.phone || '',
           notes: ''
         });
         
         console.log('Form auto-filled with user data:', {
-          firstName,
-          lastName,
+          nama: user.nama,
           email: user.email,
           phone: user.no_hp || user.phone
         });
@@ -315,9 +308,9 @@ const Booking = () => {
     }
   };
 
-  // Simpan reservasi ke database (Bayar Nanti)
+  // 🔥 Simpan reservasi ke database (Bayar Nanti) - FIELD NAMA
   const handleSaveReservation = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+    if (!formData.nama || !formData.email || !formData.phone) {
       toast({ 
         variant: "destructive", 
         title: "Error", 
@@ -355,8 +348,7 @@ const Booking = () => {
         total_harga: selectedServiceData.harga,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
-        nama_depan: formData.firstName,
-        nama_belakang: formData.lastName,
+        nama: formData.nama,           // 🔥 Kirim nama lengkap
         email: formData.email,
         no_hp: formData.phone,
         status_pembayaran: 'pending'
@@ -381,11 +373,11 @@ const Booking = () => {
     }
   };
 
-  // Lanjut ke pembayaran (Bayar Sekarang)
+  // 🔥 Lanjut ke pembayaran (Bayar Sekarang) - FIELD NAMA
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+    if (!formData.nama || !formData.email || !formData.phone) {
       toast({ 
         variant: "destructive", 
         title: "Error", 
@@ -424,7 +416,7 @@ const Booking = () => {
     setPaymentProofPreview(null);
   };
 
-  // Handle Payment Confirm
+  // 🔥 Handle Payment Confirm - FIELD NAMA
   const handlePaymentConfirm = async () => {
     if (selectedPayment !== 'cash' && !paymentProof) {
       toast({ 
@@ -476,8 +468,7 @@ const Booking = () => {
         total_harga: selectedServiceData.harga,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
-        nama_depan: formData.firstName,
-        nama_belakang: formData.lastName,
+        nama: formData.nama,           // 🔥 Kirim nama lengkap
         email: formData.email,
         no_hp: formData.phone,
         status_pembayaran: 'paid',
@@ -798,36 +789,26 @@ const Booking = () => {
                         </div>
                       </div>
 
-                      {/* Form Data Diri */}
+                      {/* 🔥 FORM DATA DIRI - SATU FIELD NAMA */}
                       <div className="space-y-4">
                         <h3 className="font-semibold text-lg flex items-center">
                           <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
                           Data Diri
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="firstName">Nama Depan *</Label>
-                            <Input 
-                              id="firstName" 
-                              value={formData.firstName}
-                              onChange={handleInputChange}
-                              required 
-                              className="mt-1 bg-gray-50" 
-                              readOnly={!!localStorage.getItem('user')}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="lastName">Nama Belakang *</Label>
-                            <Input 
-                              id="lastName" 
-                              value={formData.lastName}
-                              onChange={handleInputChange}
-                              required 
-                              className="mt-1 bg-gray-50"
-                              readOnly={!!localStorage.getItem('user')}
-                            />
-                          </div>
+                        
+                        <div>
+                          <Label htmlFor="nama">Nama Lengkap *</Label>
+                          <Input 
+                            id="nama" 
+                            value={formData.nama}
+                            onChange={handleInputChange}
+                            required 
+                            className="mt-1 bg-gray-50" 
+                            readOnly={!!localStorage.getItem('user')}
+                            placeholder="Masukkan nama lengkap Anda"
+                          />
                         </div>
+                        
                         <div>
                           <Label htmlFor="email">Email *</Label>
                           <Input 
@@ -840,6 +821,7 @@ const Booking = () => {
                             readOnly={!!localStorage.getItem('user')}
                           />
                         </div>
+                        
                         <div>
                           <Label htmlFor="phone">Nomor Telepon *</Label>
                           <Input 
@@ -852,6 +834,7 @@ const Booking = () => {
                             readOnly={!!localStorage.getItem('user')}
                           />
                         </div>
+                        
                         <div>
                           <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
                           <Textarea 
@@ -862,6 +845,7 @@ const Booking = () => {
                             className="mt-1"
                           />
                         </div>
+                        
                         <div className="flex items-center space-x-2">
                           <input 
                             type="checkbox" 

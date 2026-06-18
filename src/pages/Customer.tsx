@@ -57,6 +57,7 @@ interface ReservationData {
   id_reservasi: number;
   kode_reservasi: string;
   pelanggan_id: number;
+  pelanggan_nama?: string;
   cabang_id: number;
   nama_cabang: string;
   cabang_alamat: string;
@@ -350,10 +351,13 @@ const Customer = () => {
     navigate('/login');
   };
 
+  // src/pages/Customer.tsx - Perbaiki handleConfirmPayment
+
   const handleConfirmPayment = async () => {
     if (!selectedReservation) return;
 
-    if (!paymentProof && selectedReservation.metode_pembayaran !== 'cash') {
+    // Validasi upload bukti untuk metode non-tunai
+    if (selectedReservation.metode_pembayaran !== 'cash' && !paymentProof) {
       toast({ 
         variant: "destructive", 
         title: "Error", 
@@ -365,29 +369,61 @@ const Customer = () => {
     setUploading(true);
 
     try {
-      // Di sini nanti integrasi dengan API upload bukti
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      let buktiUrl = null;
+
+      // Upload bukti pembayaran jika ada
+      if (paymentProof) {
+        const formData = new FormData();
+        formData.append('bukti_pembayaran', paymentProof);
+        
+        console.log('Uploading payment proof...');
+        const uploadResponse = await axiosInstance.post('/reservasi/upload-bukti', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        console.log('Upload response:', uploadResponse.data);
+        
+        // Ambil URL dari response (sesuai dengan struktur response dari backend)
+        buktiUrl = uploadResponse.data.bukti_url || uploadResponse.data.data?.bukti_url;
+        console.log('Bukti URL:', buktiUrl);
+      }
+
+      // Kirim konfirmasi pembayaran ke API
+      const payload: any = {};
+      if (buktiUrl) {
+        payload.bukti_pembayaran = buktiUrl;
+      }
+
+      console.log('Confirming payment with payload:', payload);
+      await axiosInstance.put(`/reservasi/${selectedReservation.id_reservasi}/konfirmasi-pembayaran`, payload);
+
+      // Update state lokal
       setReservations(prev => prev.map(res => 
         res.id_reservasi === selectedReservation.id_reservasi 
-          ? { ...res, status: 'paid' }
+          ? { 
+              ...res, 
+              status: 'paid',
+              bukti_pembayaran: buktiUrl || res.bukti_pembayaran
+            }
           : res
       ));
-      
+
       toast({
         title: "Pembayaran Berhasil! 🎉",
-        description: "Pembayaran Anda telah dikonfirmasi.",
+        description: "Pembayaran Anda telah dikonfirmasi. Terima kasih!",
       });
-      
+
       setShowPaymentDialog(false);
       setPaymentProof(null);
       setPaymentProofPreview(null);
-      
-    } catch (error) {
+
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      console.error('Error response:', error.response?.data);
       toast({
         variant: "destructive",
         title: "Pembayaran Gagal",
-        description: "Terjadi kesalahan",
+        description: error.response?.data?.message || "Terjadi kesalahan, silakan coba lagi",
       });
     } finally {
       setUploading(false);
@@ -758,6 +794,15 @@ const Customer = () => {
                   <p className="text-sm text-gray-600">Kode Reservasi</p>
                   <p className="font-mono font-bold">{selectedReservation.kode_reservasi}</p>
                 </div>
+                {selectedReservation.pelanggan_nama && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Nama Customer</p>
+                    <p className="font-medium text-gray-900 flex items-center gap-2">
+                      <User className="h-4 w-4 text-amber-600" />
+                      {selectedReservation.pelanggan_nama}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
                   {getStatusBadge(selectedReservation.status)}
