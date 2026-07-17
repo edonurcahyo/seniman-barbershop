@@ -1,4 +1,5 @@
-// src/pages/Admin.tsx
+// src/pages/Admin.tsx - FULL CODE LENGKAP
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBranch } from '@/context/BranchContext';
@@ -26,13 +27,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from 'jspdf-autotable';
 
 // Interface untuk data dari API
 interface AdminData {
@@ -107,6 +102,15 @@ const Admin = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
+  // 🔥 FILTER PERIODE
+  const [filterPeriod, setFilterPeriod] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>(
+    String(new Date().getMonth() + 1).padStart(2, '0')
+  );
+  const [filterYear, setFilterYear] = useState<string>(
+    String(new Date().getFullYear())
+  );
+  
   // Edit Profile Dialog
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -146,8 +150,43 @@ const Admin = () => {
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [savingPayment, setSavingPayment] = useState(false);
   const [selectedCabangForPayment, setSelectedCabangForPayment] = useState('1');
+  const [isQrChanged, setIsQrChanged] = useState(false);
 
-  // Cek auth admin
+  const resetQrState = () => {
+  setQrFile(null);
+  setQrPreview(null);
+  setIsQrChanged(false);
+  // Reset file input
+  const fileInput = document.getElementById('qr-upload') as HTMLInputElement;
+  if (fileInput) {
+    fileInput.value = '';
+  }
+};
+
+  // Revenue chart data
+  const [revenueChartData, setRevenueChartData] = useState([
+    { month: 'Jan', revenue: 0 },
+    { month: 'Feb', revenue: 0 },
+    { month: 'Mar', revenue: 0 },
+    { month: 'Apr', revenue: 0 },
+    { month: 'Mei', revenue: 0 },
+    { month: 'Jun', revenue: 0 },
+  ]);
+
+  // ============ HELPER FUNCTIONS ============
+  const getMonthName = (month: number): string => {
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return months[month - 1] || 'Januari';
+  };
+
+  const formatDateLocal = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  // ============ LIFE CYCLE ============
   useEffect(() => {
     const checkAdminAuth = async () => {
       const token = localStorage.getItem('admin_token');
@@ -165,13 +204,21 @@ const Admin = () => {
     checkAdminAuth();
   }, []);
 
-  // Fetch payment settings when tab changes
   useEffect(() => {
     if (activeTab === 'payments') {
       fetchPaymentSettings();
     }
   }, [activeTab, selectedCabangForPayment]);
 
+  useEffect(() => {
+    if (currentBranch?.id && !loading) {
+      fetchReservations();
+      fetchDashboardStats();
+      fetchMonthlyRevenue();
+    }
+  }, [currentBranch?.id]);
+
+  // ============ FETCH FUNCTIONS ============
   const fetchAdminProfile = async () => {
     try {
       const response = await axiosInstance.get('/admin/profile');
@@ -193,89 +240,32 @@ const Admin = () => {
 
   const fetchPaymentSettings = async () => {
     try {
+      console.log('Fetching payment settings for cabang:', selectedCabangForPayment);
+      
       const response = await axiosInstance.get('/payment-settings', {
         params: { cabang_id: selectedCabangForPayment }
       });
+      
+      console.log('Payment settings response:', response.data);
+      
       if (response.data && response.data.data) {
+        const data = response.data.data;
         setPaymentSettings({
-          bank_bca: response.data.data.bank_bca || '',
-          bank_mandiri: response.data.data.bank_mandiri || '',
-          bank_bni: response.data.data.bank_bni || '',
-          bank_bri: response.data.data.bank_bri || '',
-          qr_code: response.data.data.qr_code || null
+          bank_bca: data.bank_bca || '',
+          bank_mandiri: data.bank_mandiri || '',
+          bank_bni: data.bank_bni || '',
+          bank_bri: data.bank_bri || '',
+          qr_code: data.qr_code || null
         });
+        
+        if (data.qr_code) {
+          setQrPreview(null); 
+        }
+      
+        resetQrState();
       }
     } catch (error) {
       console.error('Error fetching payment settings:', error);
-    }
-  };
-
-  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({ variant: "destructive", title: "Error", description: "Harap upload file gambar" });
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ variant: "destructive", title: "Error", description: "Ukuran file maksimal 2MB" });
-        return;
-      }
-      setQrFile(file);
-      setQrPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleSavePaymentSettings = async () => {
-    setSavingPayment(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('cabang_id', selectedCabangForPayment);
-      if (paymentSettings.bank_bca) formData.append('bank_bca', paymentSettings.bank_bca);
-      if (paymentSettings.bank_mandiri) formData.append('bank_mandiri', paymentSettings.bank_mandiri);
-      if (paymentSettings.bank_bni) formData.append('bank_bni', paymentSettings.bank_bni);
-      if (paymentSettings.bank_bri) formData.append('bank_bri', paymentSettings.bank_bri);
-      if (qrFile) formData.append('qr_code', qrFile);
-      
-      const response = await axiosInstance.post('/payment-settings', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      if (response.data.success) {
-        toast({ title: "Berhasil", description: "Pengaturan pembayaran disimpan" });
-        fetchPaymentSettings();
-        setQrFile(null);
-        setQrPreview(null);
-      }
-    } catch (error: any) {
-      console.error('Error saving payment settings:', error);
-      toast({ variant: "destructive", title: "Gagal", description: error.response?.data?.message || "Terjadi kesalahan" });
-    } finally {
-      setSavingPayment(false);
-    }
-  };
-
-  const getQrImageUrl = (qrCode: string | null) => {
-    if (!qrCode) return null;
-    if (qrCode.startsWith('http')) return qrCode;
-    return `http://127.0.0.1:8000/storage/${qrCode}`;
-  };
-
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchDashboardStats(),
-        fetchReservations(),
-        fetchCustomers(),
-        fetchServices(),
-        fetchMonthlyRevenue()
-      ]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -312,14 +302,6 @@ const Admin = () => {
       console.error('Error fetching reservations:', error);
     }
   };
-
-  useEffect(() => {
-    if (currentBranch?.id && !loading) {
-      fetchReservations();
-      fetchDashboardStats();
-      fetchMonthlyRevenue();
-    }
-  }, [currentBranch?.id]);
 
   const fetchCustomers = async () => {
     try {
@@ -360,47 +342,219 @@ const Admin = () => {
       }
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
-      // Jika error, tetap gunakan data yang sudah ada
     }
   };
 
-  const handleUpdateProfile = async () => {
-    setSavingProfile(true);
-    
+  const loadAllData = async () => {
+    setLoading(true);
     try {
-      const payload: any = {};
-      if (editForm.nama !== adminData?.nama) payload.nama = editForm.nama;
-      if (editForm.email !== adminData?.email) payload.email = editForm.email;
+      await Promise.all([
+        fetchDashboardStats(),
+        fetchReservations(),
+        fetchCustomers(),
+        fetchServices(),
+        fetchMonthlyRevenue()
+      ]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============ FILTER FUNCTIONS ============
+  const getFilteredReservations = () => {
+    let filtered = [...reservations];
+    
+    // 🔥 FILTER PERIODE
+    if (filterPeriod === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(r => r.tanggal_reservasi === today);
+    } 
+    else if (filterPeriod === 'this_month') {
+      const month = parseInt(filterMonth);
+      const year = parseInt(filterYear);
+      filtered = filtered.filter(r => {
+        const date = new Date(r.tanggal_reservasi);
+        return date.getMonth() === month - 1 && date.getFullYear() === year;
+      });
+    }
+    else if (filterPeriod === 'custom') {
+      if (dateRange.start && dateRange.end) {
+        filtered = filtered.filter(r => {
+          return r.tanggal_reservasi >= dateRange.start && r.tanggal_reservasi <= dateRange.end;
+        });
+      } else if (dateRange.start) {
+        filtered = filtered.filter(r => r.tanggal_reservasi >= dateRange.start);
+      } else if (dateRange.end) {
+        filtered = filtered.filter(r => r.tanggal_reservasi <= dateRange.end);
+      }
+    }
+    
+    // 🔥 FILTER SEARCH
+    if (searchTerm) {
+      filtered = filtered.filter(r => 
+        r.pelanggan_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.layanan_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.kode_reservasi?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // 🔥 FILTER STATUS
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(r => r.status === statusFilter);
+    }
+    
+    return filtered;
+  };
+
+  // ============ CRUD FUNCTIONS ============
+  const handleUpdateProfile = async () => {
+    // 🔥 VALIDASI NAMA & EMAIL
+    if (!editForm.nama || !editForm.nama.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Nama tidak boleh kosong",
+      });
+      return;
+    }
+
+    if (!editForm.email || !editForm.email.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Email tidak boleh kosong",
+      });
+      return;
+    }
+
+    // 🔥 VALIDASI FORMAT EMAIL
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editForm.email)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Format email tidak valid",
+      });
+      return;
+    }
+
+    // 🔥 VALIDASI PASSWORD (jika ada yang diisi)
+    if (editForm.new_password || editForm.new_password_confirmation || editForm.current_password) {
+      // Jika salah satu field password diisi, semua harus diisi
+      if (!editForm.current_password) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password saat ini harus diisi untuk mengganti password",
+        });
+        return;
+      }
+      
+      if (!editForm.new_password) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru harus diisi",
+        });
+        return;
+      }
+      
+      if (!editForm.new_password_confirmation) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Konfirmasi password baru harus diisi",
+        });
+        return;
+      }
+      
+      if (editForm.new_password.length < 6) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru minimal 6 karakter",
+        });
+        return;
+      }
+      
+      if (editForm.new_password !== editForm.new_password_confirmation) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru dan konfirmasi password tidak sama",
+        });
+        return;
+      }
+    }
+
+    setSavingProfile(true);
+
+    try {
+      // 🔥 BUAT PAYLOAD
+      const payload: any = {
+        nama: editForm.nama.trim(),
+        email: editForm.email.trim(),
+      };
+
+      // 🔥 Jika ada password baru, kirim juga
       if (editForm.new_password) {
         payload.current_password = editForm.current_password;
         payload.new_password = editForm.new_password;
         payload.new_password_confirmation = editForm.new_password_confirmation;
       }
-      
-      if (Object.keys(payload).length === 0) {
-        toast({ title: "Tidak ada perubahan" });
-        setShowEditProfileDialog(false);
-        return;
-      }
-      
+
+      console.log('Sending payload:', payload);
+
       const response = await axiosInstance.put('/admin/profile', payload);
-      
+
+      console.log('Update response:', response.data);
+
       if (response.data.success) {
-        toast({ title: "Berhasil!", description: "Profil admin telah diperbarui" });
-        setAdminData(response.data.admin);
-        setShowEditProfileDialog(false);
-        setEditForm({
-          ...editForm,
-          current_password: '',
-          new_password: '',
-          new_password_confirmation: ''
+        toast({
+          title: "Berhasil!",
+          description: "Profil admin telah diperbarui",
         });
+
+        // 🔥 Update data admin
+        if (response.data.admin) {
+          setAdminData(response.data.admin);
+          
+          // 🔥 Update editForm dengan data baru (reset password fields)
+          setEditForm({
+            nama: response.data.admin.nama || '',
+            email: response.data.admin.email || '',
+            current_password: '',
+            new_password: '',
+            new_password_confirmation: ''
+          });
+        }
+
+        setShowEditProfileDialog(false);
+      } else {
+        throw new Error(response.data.message || 'Gagal memperbarui profil');
       }
     } catch (error: any) {
+      console.error('Error updating profile:', error);
+
+      let errorMessage = 'Terjadi kesalahan saat memperbarui profil';
+      
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      'Server error';
+      } else if (error.request) {
+        errorMessage = 'Tidak ada response dari server. Periksa koneksi internet Anda.';
+      } else {
+        errorMessage = error.message || 'Terjadi kesalahan';
+      }
+
       toast({
         variant: "destructive",
         title: "Gagal",
-        description: error.response?.data?.message || "Terjadi kesalahan"
+        description: errorMessage,
       });
     } finally {
       setSavingProfile(false);
@@ -550,6 +704,309 @@ const Admin = () => {
     }
   };
 
+  // ============ PAYMENT SETTINGS ============
+  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log('QR file selected:', file);
+    
+    if (!file) {
+      return;
+    }
+    
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Format file harus JPG, PNG, atau WEBP" 
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Ukuran file maksimal 2MB" 
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    // 🔥 Set file dan preview
+    setQrFile(file);
+    setIsQrChanged(true); // 🔥 Tandai bahwa QR berubah
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setQrPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    toast({ 
+      title: "Berhasil", 
+      description: `File "${file.name}" siap diupload (${(file.size / 1024).toFixed(1)} KB)` 
+    });
+  };
+
+  const handleSavePaymentSettings = async () => {
+    setSavingPayment(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('cabang_id', selectedCabangForPayment);
+      
+      // 🔥 Kirim data bank (termasuk yang kosong)
+      formData.append('bank_bca', paymentSettings.bank_bca || '');
+      formData.append('bank_mandiri', paymentSettings.bank_mandiri || '');
+      formData.append('bank_bni', paymentSettings.bank_bni || '');
+      formData.append('bank_bri', paymentSettings.bank_bri || '');
+      
+      // 🔥 Upload QR Code hanya jika ada file baru
+      if (qrFile) {
+        console.log('Uploading new QR Code:', qrFile.name, qrFile.size);
+        formData.append('qr_code', qrFile);
+      } else {
+        console.log('No new QR file, keeping existing');
+      }
+      
+      // 🔥 Debug log
+      console.log('Saving payment settings:');
+      console.log('- Cabang:', selectedCabangForPayment);
+      console.log('- Bank BCA:', paymentSettings.bank_bca);
+      console.log('- Bank Mandiri:', paymentSettings.bank_mandiri);
+      console.log('- QR File:', qrFile ? qrFile.name : 'Tidak ada file baru');
+      
+      const response = await axiosInstance.post('/payment-settings', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+      });
+      
+      console.log('Save response:', response.data);
+      
+      if (response.data.success) {
+        toast({ 
+          title: "Berhasil", 
+          description: "Pengaturan pembayaran berhasil disimpan" 
+        });
+        
+        // 🔥 Refresh data
+        await fetchPaymentSettings();
+        
+        // 🔥 Reset QR state setelah sukses
+        resetQrState();
+        
+        // 🔥 Tampilkan QR code yang baru diupload
+        if (response.data.data && response.data.data.qr_code) {
+          setPaymentSettings(prev => ({
+            ...prev,
+            qr_code: response.data.data.qr_code
+          }));
+        }
+      } else {
+        throw new Error(response.data.message || 'Gagal menyimpan');
+      }
+      
+    } catch (error: any) {
+      console.error('Error saving payment settings:', error);
+      
+      let errorMessage = 'Terjadi kesalahan saat menyimpan pengaturan';
+      if (error.response) {
+        console.error('Response error:', error.response.data);
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      'Server error';
+      } else if (error.request) {
+        errorMessage = 'Tidak ada response dari server';
+      } else {
+        errorMessage = error.message || 'Terjadi kesalahan';
+      }
+      
+      toast({ 
+        variant: "destructive", 
+        title: "Gagal", 
+        description: errorMessage
+      });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  // ============ EXPORT FUNCTIONS ============
+  const exportToPDF = () => {
+    const filteredData = getFilteredReservations();
+    
+    if (filteredData.length === 0) {
+      toast({
+        title: "Tidak Ada Data",
+        description: "Tidak ada data reservasi untuk diexport",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const doc = new jsPDF('landscape');
+      
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(245, 158, 11);
+      doc.text('Laporan Transaksi Reservasi', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      
+      // Info filter
+      let periodText = 'Semua Data';
+      if (filterPeriod === 'today') periodText = 'Hari Ini';
+      else if (filterPeriod === 'this_month') periodText = `Bulan ${getMonthName(parseInt(filterMonth))} ${filterYear}`;
+      else if (filterPeriod === 'custom' && dateRange.start && dateRange.end) {
+        periodText = `${formatDateLocal(dateRange.start)} - ${formatDateLocal(dateRange.end)}`;
+      }
+      
+      doc.text(`Periode: ${periodText}`, 14, 35);
+      doc.text(`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, 14, 42);
+      doc.text(`Total Transaksi: ${filteredData.length}`, 14, 49);
+      
+      const totalAmount = filteredData.reduce((sum, t) => {
+        const harga = typeof t.total_harga === 'number' ? t.total_harga : parseFloat(t.total_harga) || 0;
+        return sum + harga;
+      }, 0);
+      
+      doc.text(`Total Pendapatan: Rp ${totalAmount.toLocaleString('id-ID')}`, 14, 56);
+      
+      // Table
+      autoTable(doc, {
+        startY: 65,
+        head: [['Kode', 'Pelanggan', 'Layanan', 'Cabang', 'Tanggal', 'Waktu', 'Metode', 'Total', 'Status']],
+        body: filteredData.map(r => {
+          const harga = typeof r.total_harga === 'number' ? r.total_harga : parseFloat(r.total_harga) || 0;
+          return [
+            r.kode_reservasi || '-',
+            r.pelanggan_nama || '-',
+            r.layanan_nama || '-',
+            r.cabang_nama || '-',
+            formatDate(r.tanggal_reservasi),
+            r.waktu || '-',
+            r.metode_pembayaran || '-',
+            `Rp ${harga.toLocaleString('id-ID')}`,
+            r.status === 'pending' ? 'Menunggu' : 
+            r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : 
+            r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
+          ];
+        }),
+        theme: 'striped',
+        headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
+        styles: { fontSize: 8, cellPadding: 3 },
+      });
+      
+      doc.save(`laporan_reservasi_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast({
+        title: "Berhasil!",
+        description: `Laporan PDF berhasil diexport (${filteredData.length} data)`,
+      });
+      
+    } catch (error) {
+      console.error('PDF Export Error:', error);
+      toast({
+        title: "Gagal Export PDF",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportToExcel = () => {
+    const filteredData = getFilteredReservations();
+    
+    if (filteredData.length === 0) {
+      toast({
+        title: "Tidak Ada Data",
+        description: "Tidak ada data reservasi untuk diexport",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const worksheetData = filteredData.map(r => {
+        const harga = typeof r.total_harga === 'number' ? r.total_harga : parseFloat(r.total_harga) || 0;
+        return {
+          'Kode Reservasi': r.kode_reservasi || '-',
+          'Pelanggan': r.pelanggan_nama || '-',
+          'Layanan': r.layanan_nama || '-',
+          'Cabang': r.cabang_nama || '-',
+          'Tanggal': formatDate(r.tanggal_reservasi),
+          'Waktu': r.waktu || '-',
+          'Metode Pembayaran': r.metode_pembayaran || '-',
+          'Total': harga,
+          'Status': r.status === 'pending' ? 'Menunggu' : 
+                   r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : 
+                   r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
+        };
+      });
+      
+      const totalAmount = worksheetData.reduce((sum, r) => sum + (r.Total || 0), 0);
+      
+      worksheetData.push({
+        'Kode Reservasi': 'TOTAL',
+        'Pelanggan': '',
+        'Layanan': '',
+        'Cabang': '',
+        'Tanggal': '',
+        'Waktu': '',
+        'Metode Pembayaran': '',
+        'Total': totalAmount,
+        'Status': ''
+      });
+      
+      const ws = XLSX.utils.json_to_sheet(worksheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan Reservasi');
+      
+      ws['!cols'] = [
+        { wch: 18 }, // Kode
+        { wch: 20 }, // Pelanggan
+        { wch: 20 }, // Layanan
+        { wch: 28 }, // Cabang
+        { wch: 15 }, // Tanggal
+        { wch: 12 }, // Waktu
+        { wch: 20 }, // Metode
+        { wch: 18 }, // Total
+        { wch: 18 }  // Status
+      ];
+      
+      // Format currency di Excel
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 });
+        if (ws[cellAddress] && typeof ws[cellAddress].v === 'number') {
+          ws[cellAddress].z = '"Rp "#,##0.00';
+        }
+      }
+      
+      XLSX.writeFile(wb, `laporan_reservasi_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      toast({
+        title: "Berhasil!",
+        description: `Laporan Excel berhasil diexport (${filteredData.length} data)`,
+      });
+      
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      toast({
+        title: "Gagal Export Excel",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat file Excel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ============ UI HELPERS ============
   const getStatusBadge = (status: string) => {
     const statusMap: { [key: string]: { label: string; color: string } } = {
       pending: { label: 'Menunggu', color: 'bg-yellow-500' },
@@ -577,7 +1034,8 @@ const Admin = () => {
   };
 
   const formatRupiah = (amount: number) => {
-    return `Rp. ${amount.toLocaleString('id-ID')}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 0;
+    return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -590,115 +1048,20 @@ const Admin = () => {
     return `http://127.0.0.1:8000/storage/${gambar}`;
   };
 
-  const getFilteredReservations = () => {
-    let filtered = reservations;
-    if (searchTerm) {
-      filtered = filtered.filter(r => 
-        r.pelanggan_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.layanan_nama?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  const getQrImageUrl = (qrCode: string | null) => {
+    if (!qrCode) return null;
+    if (qrCode.startsWith('http')) return qrCode;
+    if (qrCode.startsWith('storage/')) {
+      return `http://127.0.0.1:8000/${qrCode}`;
     }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(r => r.status === statusFilter);
-    }
-    return filtered;
+    return `http://127.0.0.1:8000/storage/${qrCode}`;
   };
-
-  // Revenue chart data
-  const [revenueChartData, setRevenueChartData] = useState([
-    { month: 'Jan', revenue: 0 },
-    { month: 'Feb', revenue: 0 },
-    { month: 'Mar', revenue: 0 },
-    { month: 'Apr', revenue: 0 },
-    { month: 'Mei', revenue: 0 },
-    { month: 'Jun', revenue: 0 },
-  ]);
 
   const paymentMethodData = [
     { name: 'Tunai', value: reservations.filter(r => r.metode_pembayaran === 'cash').length, color: '#10b981' },
     { name: 'Transfer', value: reservations.filter(r => r.metode_pembayaran === 'transfer').length, color: '#3b82f6' },
     { name: 'QRIS', value: reservations.filter(r => r.metode_pembayaran === 'qris').length, color: '#f97316' },
   ];
-
-  // Export functions
-  const exportToPDF = () => {
-    const filteredData = getFilteredReservations();
-    const doc = new jsPDF('landscape');
-    
-    doc.setFontSize(20);
-    doc.setTextColor(245, 158, 11);
-    doc.text('Laporan Transaksi Reservasi', 14, 20);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Periode: ${dateRange.start || 'Awal'} - ${dateRange.end || 'Sekarang'}`, 14, 35);
-    doc.text(`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, 14, 42);
-    doc.text(`Total Transaksi: ${filteredData.length}`, 14, 49);
-    
-    const totalAmount = filteredData.reduce((sum, t) => sum + t.total_harga, 0);
-    doc.text(`Total Pendapatan: ${formatRupiah(totalAmount)}`, 14, 56);
-    
-    doc.autoTable({
-      startY: 65,
-      head: [['Kode', 'Pelanggan', 'Layanan', 'Cabang', 'Tanggal', 'Waktu', 'Metode', 'Total', 'Status']],
-      body: filteredData.map(r => [
-        r.kode_reservasi,
-        r.pelanggan_nama || '-',
-        r.layanan_nama,
-        r.cabang_nama || '-',
-        formatDate(r.tanggal_reservasi),
-        r.waktu,
-        r.metode_pembayaran,
-        formatRupiah(r.total_harga),
-        r.status === 'pending' ? 'Menunggu' : r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
-      ]),
-      theme: 'striped',
-      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
-      styles: { fontSize: 8, cellPadding: 3 }
-    });
-    
-    doc.save(`laporan_reservasi_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  const exportToExcel = () => {
-    const filteredData = getFilteredReservations();
-    
-    const worksheetData = filteredData.map(r => ({
-      'Kode Reservasi': r.kode_reservasi,
-      'Pelanggan': r.pelanggan_nama || '-',
-      'Layanan': r.layanan_nama,
-      'Cabang': r.cabang_nama || '-',
-      'Tanggal': formatDate(r.tanggal_reservasi),
-      'Waktu': r.waktu,
-      'Metode Pembayaran': r.metode_pembayaran,
-      'Total': r.total_harga,
-      'Status': r.status === 'pending' ? 'Menunggu' : r.status === 'dikonfirmasi' ? 'Dikonfirmasi' : r.status === 'selesai' ? 'Selesai' : 'Dibatalkan'
-    }));
-    
-    const totalAmount = filteredData.reduce((sum, r) => sum + r.total_harga, 0);
-    worksheetData.push({
-      'Kode Reservasi': 'TOTAL',
-      'Pelanggan': '',
-      'Layanan': '',
-      'Cabang': '',
-      'Tanggal': '',
-      'Waktu': '',
-      'Metode Pembayaran': '',
-      'Total': totalAmount,
-      'Status': ''
-    });
-    
-    const ws = XLSX.utils.json_to_sheet(worksheetData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Laporan Reservasi');
-    
-    ws['!cols'] = [
-      { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
-      { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
-    ];
-    
-    XLSX.writeFile(wb, `laporan_reservasi_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
 
   if (loading) {
     return (
@@ -720,12 +1083,11 @@ const Admin = () => {
       <Navbar />
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="container mx-auto px-4">
-          {/* Header dengan Logout */}
+          {/* Header */}
           <div className="mb-8 flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Admin</h1>
               <p className="text-gray-600">Selamat datang, {adminData?.nama}</p>
-              {/* 🔥 TAMPILKAN CABANG YANG SEDANG DIPILIH */}
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-sm text-gray-500">Cabang:</span>
                 <span className="text-sm font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
@@ -817,38 +1179,26 @@ const Admin = () => {
                   <CardContent>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                       <LineChart data={revenueChartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        
-                        {/* 🔥 Y-Axis - Format penuh dengan pemisah ribuan */}
-                        <YAxis 
-                          tickFormatter={(value) => `Rp${value.toLocaleString('id-ID')}`}
-                          width={90}  // 🔥 TAMBAHKAN INI - beri ruang untuk label
-                          domain={[0, 'dataMax + dataMax * 0.1']}  // 🔥 TAMBAHKAN INI - beri jarak dari atas
-                        />
-                      
-                        {/* 🔥 Tooltip - Format penuh */}
-                        <Tooltip 
-                          formatter={(value) => {
-                            return new Intl.NumberFormat('id-ID', {
-                              style: 'currency',
-                              currency: 'IDR',
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0
-                            }).format(Number(value));
-                          }} 
-                        />
-                        
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="revenue" 
-                          stroke="#f59e0b" 
-                          strokeWidth={2} 
-                          name="Pendapatan" 
-                        />
-                      </LineChart>
+                        <LineChart data={revenueChartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis 
+                            tickFormatter={(value) => `Rp${(value / 1000).toFixed(0)}K`}
+                            width={70}
+                            domain={[0, 'dataMax + dataMax * 0.1']}
+                          />
+                          <Tooltip 
+                            formatter={(value) => formatRupiah(Number(value))}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="revenue" 
+                            stroke="#f59e0b" 
+                            strokeWidth={2} 
+                            name="Pendapatan" 
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
@@ -999,7 +1349,7 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
-            {/* SERVICES TAB - DENGAN CRUD */}
+            {/* SERVICES TAB */}
             <TabsContent value="services" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1091,75 +1441,167 @@ const Admin = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Export Laporan Reservasi</CardTitle>
-                  <CardDescription>Export data reservasi ke berbagai format</CardDescription>
+                  <CardDescription>Export data reservasi dengan filter periode</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col md:flex-row gap-4 items-end">
-                    <div className="flex-1">
-                      <Label>Periode Mulai</Label>
-                      <Input 
-                        type="date" 
-                        value={dateRange.start}
-                        onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                      />
+                  <div className="flex flex-col gap-6">
+                    {/* Filter Periode */}
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="w-48">
+                        <Label>Periode</Label>
+                        <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih Periode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Semua Data</SelectItem>
+                            <SelectItem value="today">Hari Ini</SelectItem>
+                            <SelectItem value="this_month">Bulan Ini</SelectItem>
+                            <SelectItem value="custom">Kustom</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {(filterPeriod === 'custom' || filterPeriod === 'this_month') && (
+                        <>
+                          <div className="w-40">
+                            <Label>Bulan</Label>
+                            <Select value={filterMonth} onValueChange={setFilterMonth}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Bulan" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="01">Januari</SelectItem>
+                                <SelectItem value="02">Februari</SelectItem>
+                                <SelectItem value="03">Maret</SelectItem>
+                                <SelectItem value="04">April</SelectItem>
+                                <SelectItem value="05">Mei</SelectItem>
+                                <SelectItem value="06">Juni</SelectItem>
+                                <SelectItem value="07">Juli</SelectItem>
+                                <SelectItem value="08">Agustus</SelectItem>
+                                <SelectItem value="09">September</SelectItem>
+                                <SelectItem value="10">Oktober</SelectItem>
+                                <SelectItem value="11">November</SelectItem>
+                                <SelectItem value="12">Desember</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="w-40">
+                            <Label>Tahun</Label>
+                            <Select value={filterYear} onValueChange={setFilterYear}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Tahun" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 5 }, (_, i) => {
+                                  const year = new Date().getFullYear() - i;
+                                  return (
+                                    <SelectItem key={year} value={String(year)}>
+                                      {year}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+
+                      {filterPeriod === 'custom' && (
+                        <>
+                          <div className="flex-1">
+                            <Label>Tanggal Mulai</Label>
+                            <Input
+                              type="date"
+                              value={dateRange.start}
+                              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <Label>Tanggal Akhir</Label>
+                            <Input
+                              type="date"
+                              value={dateRange.end}
+                              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="w-48">
+                        <Label>Format Export</Label>
+                        <Select value={exportFormat} onValueChange={setExportFormat}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pdf">PDF Document</SelectItem>
+                            <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button 
+                        onClick={exportFormat === 'pdf' ? exportToPDF : exportToExcel} 
+                        className="bg-amber-600 hover:bg-amber-700"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Laporan
+                      </Button>
                     </div>
-                    <div className="flex-1">
-                      <Label>Periode Akhir</Label>
-                      <Input 
-                        type="date" 
-                        value={dateRange.end}
-                        onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                      />
+
+                    {/* Info Filter Aktif */}
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-sm font-medium text-gray-600">Filter aktif:</span>
+                      <Badge variant="outline" className="bg-blue-50">
+                        {filterPeriod === 'all' && 'Semua Data'}
+                        {filterPeriod === 'today' && 'Hari Ini'}
+                        {filterPeriod === 'this_month' && `Bulan ${getMonthName(parseInt(filterMonth))} ${filterYear}`}
+                        {filterPeriod === 'custom' && dateRange.start && dateRange.end 
+                          ? `${formatDateLocal(dateRange.start)} - ${formatDateLocal(dateRange.end)}`
+                          : 'Kustom'}
+                      </Badge>
+                      <Badge variant="outline" className="bg-gray-50">
+                        Total Data: {getFilteredReservations().length} transaksi
+                      </Badge>
                     </div>
-                    <div className="w-48">
-                      <Label>Format Export</Label>
-                      <Select value={exportFormat} onValueChange={setExportFormat}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pdf">PDF Document</SelectItem>
-                          <SelectItem value="excel">Excel (.xlsx)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={exportFormat === 'pdf' ? exportToPDF : exportToExcel} className="bg-amber-600 hover:bg-amber-700">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Laporan
-                    </Button>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <h3 className="font-semibold mb-3">Preview Data</h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Kode</TableHead>
-                            <TableHead>Pelanggan</TableHead>
-                            <TableHead>Layanan</TableHead>
-                            <TableHead>Tanggal</TableHead>
-                            <TableHead>Total</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {getFilteredReservations().slice(0, 5).map((reservation) => (
-                            <TableRow key={reservation.id_reservasi}>
-                              <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
-                              <TableCell>{reservation.pelanggan_nama || '-'}</TableCell>
-                              <TableCell>{reservation.layanan_nama}</TableCell>
-                              <TableCell>{formatDate(reservation.tanggal_reservasi)}</TableCell>
-                              <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
-                              <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                    
+                    {/* Preview Data */}
+                    <div className="mt-6">
+                      <h3 className="font-semibold mb-3">Preview Data</h3>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Kode</TableHead>
+                              <TableHead>Pelanggan</TableHead>
+                              <TableHead>Layanan</TableHead>
+                              <TableHead>Tanggal</TableHead>
+                              <TableHead>Waktu</TableHead>
+                              <TableHead>Total</TableHead>
+                              <TableHead>Status</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {getFilteredReservations().slice(0, 5).map((reservation) => (
+                              <TableRow key={reservation.id_reservasi}>
+                                <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
+                                <TableCell>{reservation.pelanggan_nama || '-'}</TableCell>
+                                <TableCell>{reservation.layanan_nama}</TableCell>
+                                <TableCell>{formatDate(reservation.tanggal_reservasi)}</TableCell>
+                                <TableCell>{reservation.waktu || '-'}</TableCell> 
+                                <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
+                                <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {getFilteredReservations().length === 0 && (
+                        <p className="text-center text-gray-500 py-4">Tidak ada data</p>
+                      )}
                     </div>
-                    {getFilteredReservations().length === 0 && (
-                      <p className="text-center text-gray-500 py-4">Tidak ada data</p>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1214,7 +1656,6 @@ const Admin = () => {
                   <CardDescription>Kelola rekening bank dan QR code untuk pembayaran</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Pilih Cabang */}
                   <div className="space-y-2">
                     <Label>Pilih Cabang</Label>
                     <Select value={selectedCabangForPayment} onValueChange={setSelectedCabangForPayment}>
@@ -1228,7 +1669,6 @@ const Admin = () => {
                     </Select>
                   </div>
                   
-                  {/* Rekening Bank */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 border-b pb-2">
@@ -1239,7 +1679,7 @@ const Admin = () => {
                       <div className="space-y-2">
                         <Label>BCA</Label>
                         <Input
-                          placeholder="Nomor Rekening BCA (contoh: 1234567890 a.n. Seniman)"
+                          placeholder="Nomor Rekening BCA"
                           value={paymentSettings.bank_bca}
                           onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bca: e.target.value })}
                         />
@@ -1273,7 +1713,6 @@ const Admin = () => {
                       </div>
                     </div>
                     
-                    {/* QR Code */}
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 border-b pb-2">
                         <QrCode className="h-5 w-5 text-orange-600" />
@@ -1281,36 +1720,73 @@ const Admin = () => {
                       </div>
                       
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        {qrPreview || getQrImageUrl(paymentSettings.qr_code) ? (
+                        {/* 🔥 Tampilkan preview (dari upload baru atau dari server) */}
+                        {(qrPreview || getQrImageUrl(paymentSettings.qr_code)) ? (
                           <div className="space-y-3">
                             <img 
                               src={qrPreview || getQrImageUrl(paymentSettings.qr_code)} 
                               alt="QR Code"
-                              className="w-48 h-48 object-contain mx-auto border rounded-lg"
+                              className="w-48 h-48 object-contain mx-auto border rounded-lg bg-white p-2"
                             />
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setQrFile(null);
-                                setQrPreview(null);
-                              }}
-                            >
-                              Ganti QR Code
-                            </Button>
+                            {qrPreview && (
+                              <p className="text-xs text-green-600">
+                                ✓ QR Code baru siap diupload
+                              </p>
+                            )}
+                            <div className="flex justify-center gap-2 flex-wrap">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={resetQrState}
+                              >
+                                Hapus
+                              </Button>
+                              <label className="cursor-pointer">
+                                <Button variant="outline" size="sm" asChild>
+                                  <span>Ganti QR Code</span>
+                                </Button>
+                                <input
+                                  id="qr-upload"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleQrUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
                           </div>
                         ) : (
                           <label className="cursor-pointer flex flex-col items-center justify-center py-8">
                             <UploadIcon className="h-12 w-12 text-gray-400 mb-2" />
                             <span className="text-sm text-gray-500">Klik untuk upload QR Code</span>
-                            <span className="text-xs text-gray-400">Format: JPG, PNG (Max 2MB)</span>
+                            <span className="text-xs text-gray-400">Format: JPG, PNG, WEBP (Max 2MB)</span>
                             <input
+                              id="qr-upload"
                               type="file"
                               accept="image/*"
                               onChange={handleQrUpload}
                               className="hidden"
                             />
                           </label>
+                        )}
+                        
+                        {/* 🔥 Informasi file yang akan diupload */}
+                        {qrFile && (
+                          <div className="mt-3 p-2 bg-blue-50 rounded text-left">
+                            <p className="text-xs text-blue-700">
+                              <strong>File siap upload:</strong> {qrFile.name}
+                            </p>
+                            <p className="text-xs text-blue-600">
+                              Ukuran: {(qrFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* 🔥 Tampilkan QR Code lama jika ada */}
+                        {paymentSettings.qr_code && !qrPreview && !qrFile && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            QR Code saat ini (klik "Ganti QR Code" untuk mengubah)
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1331,77 +1807,131 @@ const Admin = () => {
       </div>
 
       {/* Edit Profile Dialog */}
-      <Dialog open={showEditProfileDialog} onOpenChange={setShowEditProfileDialog}>
+      <Dialog open={showEditProfileDialog} onOpenChange={(open) => {
+        if (!open) {
+          // 🔥 Reset form saat dialog ditutup tanpa menyimpan
+          setEditForm({
+            ...editForm,
+            current_password: '',
+            new_password: '',
+            new_password_confirmation: ''
+          });
+        }
+        setShowEditProfileDialog(open);
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Edit Profil Admin</DialogTitle>
-            <DialogDescription>Perbarui informasi akun administrator</DialogDescription>
+            <DialogDescription>
+              Perbarui informasi akun administrator. Biarkan kosong jika tidak ingin mengubah password.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* 🔥 NAMA */}
             <div className="space-y-2">
-              <Label htmlFor="admin-nama">Nama</Label>
+              <Label htmlFor="admin-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
               <Input
                 id="admin-nama"
                 value={editForm.nama}
                 onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                placeholder="Masukkan nama lengkap"
+                disabled={savingProfile}
               />
             </div>
             
+            {/* 🔥 EMAIL */}
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Email</Label>
+              <Label htmlFor="admin-email">Email <span className="text-red-500">*</span></Label>
               <Input
                 id="admin-email"
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                placeholder="admin@example.com"
+                disabled={savingProfile}
               />
             </div>
             
+            {/* 🔥 PISAH DENGAN BORDER */}
             <div className="border-t pt-4">
-              <h4 className="font-semibold mb-3">Ganti Password (Opsional)</h4>
+              <h4 className="font-semibold text-sm text-gray-700 mb-3">Ganti Password (Opsional)</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                Isi hanya jika ingin mengganti password. Semua field password harus diisi.
+              </p>
               
+              {/* 🔥 PASSWORD SAAT INI */}
               <div className="space-y-2 mb-3">
                 <Label htmlFor="current-password">Password Saat Ini</Label>
                 <Input
                   id="current-password"
                   type="password"
-                  placeholder="********"
+                  placeholder="Masukkan password saat ini"
                   value={editForm.current_password}
                   onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
+                  disabled={savingProfile}
                 />
               </div>
               
+              {/* 🔥 PASSWORD BARU */}
               <div className="space-y-2 mb-3">
                 <Label htmlFor="new-password">Password Baru</Label>
                 <Input
                   id="new-password"
                   type="password"
-                  placeholder="********"
+                  placeholder="Masukkan password baru (min 6 karakter)"
                   value={editForm.new_password}
                   onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
+                  disabled={savingProfile}
                 />
               </div>
               
+              {/* 🔥 KONFIRMASI PASSWORD BARU */}
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="********"
+                  placeholder="Konfirmasi password baru"
                   value={editForm.new_password_confirmation}
                   onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
+                  disabled={savingProfile}
                 />
+              </div>
+              
+              {/* 🔥 INFORMASI TAMBAHAN */}
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Tips:</strong> Password baru minimal 6 karakter. 
+                  Password akan tetap sama jika tidak diisi.
+                </p>
               </div>
             </div>
           </div>
 
           <DialogFooter className="flex gap-3">
-            <Button variant="outline" onClick={() => setShowEditProfileDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // 🔥 Reset form password
+                setEditForm({
+                  ...editForm,
+                  current_password: '',
+                  new_password: '',
+                  new_password_confirmation: ''
+                });
+                setShowEditProfileDialog(false);
+              }}
+              disabled={savingProfile}
+            >
               <XCircleIcon className="h-4 w-4 mr-2" />
               Batal
             </Button>
-            <Button onClick={handleUpdateProfile} disabled={savingProfile} className="bg-amber-600 hover:bg-amber-700">
+            <Button 
+              onClick={handleUpdateProfile} 
+              disabled={savingProfile} 
+              className="bg-amber-600 hover:bg-amber-700"
+            >
               <Save className="h-4 w-4 mr-2" />
               {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
@@ -1409,7 +1939,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Service Form Dialog (Tambah/Edit Layanan) */}
+      {/* Service Form Dialog */}
       <Dialog open={showServiceDialog} onOpenChange={setShowServiceDialog}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>

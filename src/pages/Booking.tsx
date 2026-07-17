@@ -1,4 +1,4 @@
-// src/pages/Booking.tsx - VERSI DENGAN FIELD NAMA (SATU FIELD)
+// src/pages/Booking.tsx - FULL CODE LENGKAP
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,9 @@ import { CalendarIcon, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upl
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { Printer } from 'lucide-react'; 
+import NotaPemesanan from '@/components/NotaPemesanan'; 
+import { printNota } from '@/lib/printNota';
 import {
   Dialog,
   DialogContent,
@@ -44,7 +47,7 @@ interface TimeSlotData {
   id_slot: number;
   jam_mulai: string;
   jam_selesai: string;
-  status: 'tersedia' | 'dibooking';
+   status: 'tersedia' | 'dibooking' | 'lewat'; 
 }
 
 interface ReservationData {
@@ -99,13 +102,17 @@ const Booking = () => {
     qr_code: null
   });
   
-  // 🔥 FORM DATA - SATU FIELD NAMA
+  // FORM DATA - SATU FIELD NAMA
   const [formData, setFormData] = useState({
     nama: '',
     email: '',
     phone: '',
     notes: ''
   });
+
+   const handlePrintNota = () => {
+    printNota();
+  };
 
   // Fetch payment settings dari API
   const fetchPaymentSettings = async () => {
@@ -135,7 +142,7 @@ const Booking = () => {
     { bank: 'BRI', accountNumber: paymentSettings.bank_bri, accountName: 'Seniman Barbershop' }
   ].filter(bank => bank.accountNumber);
 
-  // 🔥 FUNGSI UNTUK LOAD DATA USER YANG LOGIN - SATU FIELD NAMA
+  // FUNGSI UNTUK LOAD DATA USER YANG LOGIN - SATU FIELD NAMA
   const loadUserData = () => {
     const userStr = localStorage.getItem('user');
     console.log('User data from localStorage:', userStr);
@@ -145,7 +152,7 @@ const Booking = () => {
         const user = JSON.parse(userStr);
         
         setFormData({
-          nama: user.nama || '',  // 🔥 Langsung ambil nama lengkap
+          nama: user.nama || '',
           email: user.email || '',
           phone: user.no_hp || user.phone || '',
           notes: ''
@@ -260,16 +267,35 @@ const Booking = () => {
 
   // Format price
   const formatRupiah = (price: number) => {
-    return `Rp. ${price.toLocaleString('id-ID')}`;
+    const num = typeof price === 'number' ? price : parseFloat(String(price).replace(/[^0-9.]/g, '')) || 0;
+    return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   };
 
-  // Get available time slots
+  // src/pages/Booking.tsx - getAvailableTimeSlots
   const getAvailableTimeSlots = () => {
-    const slots = timeSlots.map(slot => ({
-      time: slot.jam_mulai.substring(0, 5),
-      slotId: slot.id_slot,
-      isAvailable: slot.status === 'tersedia'
-    }));
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const isToday = date && format(date, 'yyyy-MM-dd') === today;
+    
+    const slots = timeSlots.map(slot => {
+      const [hours, minutes] = slot.jam_mulai.split(':').map(Number);
+      const slotMinutes = hours * 60 + minutes;
+      
+      // 🔥 CEK APAKAH SLOT SUDAH LEWAT
+      const isPassed = isToday && slotMinutes < currentMinutes;
+      
+      // 🔥 CEK APAKAH SLOT TERSEDIA
+      const isAvailable = slot.status === 'tersedia' && !isPassed;
+      
+      return {
+        time: slot.jam_mulai.substring(0, 5),
+        slotId: slot.id_slot,
+        isAvailable: isAvailable,
+        isPassed: isPassed,
+        status: slot.status
+      };
+    });
     
     return slots.sort((a, b) => a.time.localeCompare(b.time));
   };
@@ -280,6 +306,9 @@ const Booking = () => {
     if (qrCode.startsWith('http')) return qrCode;
     return `http://127.0.0.1:8000/storage/${qrCode}`;
   };
+
+  // Cek apakah metode pembayaran adalah Tunai
+  const isCashPayment = selectedPayment === 'cash';
 
   const nextStep = () => {
     if (step === 1 && !selectedService) {
@@ -308,7 +337,78 @@ const Booking = () => {
     }
   };
 
-  // 🔥 Simpan reservasi ke database (Bayar Nanti) - FIELD NAMA
+  // 🔥 Handle booking untuk metode Tunai (langsung booking tanpa payment dialog)
+  const handleCashBooking = async () => {
+    // Validasi data diri
+    if (!formData.nama || !formData.email || !formData.phone) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Harap lengkapi semua data diri terlebih dahulu" 
+      });
+      return;
+    }
+
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    if (!user || !user.id_pelanggan) {
+      toast({ 
+        variant: "destructive", 
+        title: "Login Diperlukan", 
+        description: "Silakan login terlebih dahulu untuk melakukan booking" 
+      });
+      return;
+    }
+
+    const selectedServiceData = getSelectedServiceData();
+    if (!selectedServiceData) return;
+
+    const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
+
+    setLoading(true);
+
+    try {
+      const response = await axiosInstance.post('/reservasi', {
+        pelanggan_id: user.id_pelanggan,
+        cabang_id: cabangId,
+        layanan_id: parseInt(selectedService),
+        slot_id: selectedSlotId,
+        tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
+        total_harga: selectedServiceData.harga,
+        metode_pembayaran: 'cash',
+        catatan: formData.notes,
+        nama: formData.nama,
+        email: formData.email,
+        no_hp: formData.phone,
+        status_pembayaran: 'paid'  // Tunai langsung dianggap lunas
+      });
+
+      // Tampilkan dialog sukses
+      setPaymentConfirmed(true);
+      
+      toast({
+        title: "Booking Berhasil! 🎉",
+        description: "Reservasi Anda berhasil dipesan. Silakan datang sesuai jadwal.",
+      });
+      
+      // Refresh slot waktu
+      if (date) {
+        loadTimeSlots(format(date, 'yyyy-MM-dd'));
+      }
+    } catch (error: any) {
+      console.error('Cash booking error:', error);
+      toast({
+        variant: "destructive",
+        title: "Booking Gagal",
+        description: error.response?.data?.message || "Terjadi kesalahan, silakan coba lagi",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Simpan reservasi ke database (Bayar Nanti) - FIELD NAMA
   const handleSaveReservation = async () => {
     if (!formData.nama || !formData.email || !formData.phone) {
       toast({ 
@@ -348,7 +448,7 @@ const Booking = () => {
         total_harga: selectedServiceData.harga,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
-        nama: formData.nama,           // 🔥 Kirim nama lengkap
+        nama: formData.nama,
         email: formData.email,
         no_hp: formData.phone,
         status_pembayaran: 'pending'
@@ -373,7 +473,7 @@ const Booking = () => {
     }
   };
 
-  // 🔥 Lanjut ke pembayaran (Bayar Sekarang) - FIELD NAMA
+  // Lanjut ke pembayaran (Bayar Sekarang) - FIELD NAMA
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -416,7 +516,7 @@ const Booking = () => {
     setPaymentProofPreview(null);
   };
 
-  // 🔥 Handle Payment Confirm - FIELD NAMA
+  // Handle Payment Confirm - FIELD NAMA
   const handlePaymentConfirm = async () => {
     if (selectedPayment !== 'cash' && !paymentProof) {
       toast({ 
@@ -468,7 +568,7 @@ const Booking = () => {
         total_harga: selectedServiceData.harga,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
-        nama: formData.nama,           // 🔥 Kirim nama lengkap
+        nama: formData.nama,
         email: formData.email,
         no_hp: formData.phone,
         status_pembayaran: 'paid',
@@ -624,6 +724,13 @@ const Booking = () => {
                       </div>
                       <div>
                         <Label className="block mb-2">Pilih Waktu (10:00 - 22:00)</Label>
+                        {/* 🔥 TAMPILKAN INFORMASI JIKA ADA SLOT YANG SUDAH LEWAT */}
+                        {date && new Date(date).toDateString() === new Date().toDateString() && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            ⏰ Slot waktu yang sudah lewat tidak dapat dipilih
+                          </p>
+                        )}
+                        
                         <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
                           {availableTimeSlots.map((slot) => (
                             <Button 
@@ -635,10 +742,12 @@ const Booking = () => {
                               className={cn(
                                 "hover:bg-barber-gold/10 transition-all",
                                 selectedTime === slot.time && "bg-barber-gold text-black hover:text-black",
-                                !slot.isAvailable && "bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200"
+                                slot.isPassed && "bg-gray-300 text-gray-400 cursor-not-allowed hover:bg-gray-300 line-through",
+                                !slot.isAvailable && !slot.isPassed && "bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200"
                               )}
                             >
                               {slot.time}
+                              {slot.isPassed && " ⏰"}
                             </Button>
                           ))}
                         </div>
@@ -789,7 +898,7 @@ const Booking = () => {
                         </div>
                       </div>
 
-                      {/* 🔥 FORM DATA DIRI - SATU FIELD NAMA */}
+                      {/* FORM DATA DIRI - SATU FIELD NAMA */}
                       <div className="space-y-4">
                         <h3 className="font-semibold text-lg flex items-center">
                           <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
@@ -858,31 +967,49 @@ const Booking = () => {
                           </Label>
                         </div>
 
+                        {/* 🔥 TOMBOL AKSI - BERBEDA UNTUK TUNAI */}
                         <div className="flex gap-4 mt-6">
-                          <Button 
-                            onClick={handleProceedToPayment}
-                            className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
-                            disabled={loading}
-                          >
-                            {loading ? 'Memproses...' : 'Bayar Sekarang'}
-                          </Button>
-                          <Button 
-                            onClick={handleSaveReservation}
-                            variant="outline"
-                            className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
-                            disabled={loading}
-                          >
-                            <Clock className="mr-2 h-4 w-4" />
-                            {loading ? 'Memproses...' : 'Bayar Nanti'}
-                          </Button>
+                          {selectedPayment === 'cash' ? (
+                            // 🔥 Jika Tunai: Hanya tombol "Booking Sekarang"
+                            <Button 
+                              onClick={handleCashBooking}
+                              className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                              disabled={loading}
+                            >
+                              {loading ? 'Memproses...' : 'Booking Sekarang'}
+                            </Button>
+                          ) : (
+                            // 🔥 Jika Non-Tunai: Tampilkan "Bayar Sekarang" dan "Bayar Nanti"
+                            <>
+                              <Button 
+                                onClick={handleProceedToPayment}
+                                className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                                disabled={loading}
+                              >
+                                {loading ? 'Memproses...' : 'Bayar Sekarang'}
+                              </Button>
+                              <Button 
+                                onClick={handleSaveReservation}
+                                variant="outline"
+                                className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
+                                disabled={loading}
+                              >
+                                <Clock className="mr-2 h-4 w-4" />
+                                {loading ? 'Memproses...' : 'Bayar Nanti'}
+                              </Button>
+                            </>
+                          )}
                         </div>
                         
-                        <Alert className="bg-blue-50 border-blue-200">
-                          <AlertCircle className="h-4 w-4 text-blue-600" />
-                          <AlertDescription className="text-xs text-blue-700">
-                            Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
-                          </AlertDescription>
-                        </Alert>
+                        {/* 🔥 Alert hanya untuk non-tunai */}
+                        {selectedPayment !== 'cash' && (
+                          <Alert className="bg-blue-50 border-blue-200">
+                            <AlertCircle className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="text-xs text-blue-700">
+                              Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </div>
                     </div>
                   </>
@@ -1066,12 +1193,43 @@ const Booking = () => {
               {selectedPayment !== 'cash' && " Bukti pembayaran Anda akan kami verifikasi."}
               Kami akan mengirimkan konfirmasi ke email Anda.
             </DialogDescription>
-            <Button 
-              onClick={() => window.location.href = '/'}
-              className="bg-barber-gold hover:bg-barber-gold/90 text-black"
-            >
-              Kembali ke Beranda
-            </Button>
+            
+            {/* 🔥 KOMPONEN NOTA (HIDDEN) */}
+            <div className="hidden">
+              {selectedServiceData && date && (
+                <NotaPemesanan 
+                  reservation={{
+                    kode_reservasi: savedReservation?.kode_reservasi || 'RES-001',
+                    nama_layanan: selectedServiceData.nama_layanan,
+                    total_harga: selectedServiceData.harga,
+                    tanggal: date.toISOString(),
+                    waktu: selectedTime || '10:00',
+                    nama_cabang: currentBranch?.name || 'Seniman Barbershop',
+                    cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
+                    pelanggan_nama: formData.nama,
+                    durasi: `${selectedServiceData.durasi} menit`,
+                    metode_pembayaran: selectedPayment || 'cash',
+                    status: 'paid'
+                  }}
+                />
+              )}
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handlePrintNota}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Cetak Nota
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '/'}
+                variant="outline"
+              >
+                Kembali ke Beranda
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1087,6 +1245,27 @@ const Booking = () => {
             <DialogDescription className="mb-4">
               Data reservasi Anda telah berhasil disimpan.
             </DialogDescription>
+            
+            {/* 🔥 KOMPONEN NOTA (HIDDEN) */}
+            <div className="hidden">
+              {selectedServiceData && date && savedReservation && (
+                <NotaPemesanan 
+                  reservation={{
+                    kode_reservasi: savedReservation.kode_reservasi || 'RES-001',
+                    nama_layanan: selectedServiceData.nama_layanan,
+                    total_harga: selectedServiceData.harga,
+                    tanggal: date.toISOString(),
+                    waktu: selectedTime || '10:00',
+                    nama_cabang: currentBranch?.name || 'Seniman Barbershop',
+                    cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
+                    pelanggan_nama: formData.nama,
+                    durasi: `${selectedServiceData.durasi} menit`,
+                    metode_pembayaran: selectedPayment || 'cash',
+                    status: 'pending'
+                  }}
+                />
+              )}
+            </div>
             
             {savedReservation && (
               <div className="bg-gray-50 p-4 rounded-lg text-left mb-6">
@@ -1104,11 +1283,19 @@ const Booking = () => {
             
             <div className="space-y-3">
               <Button 
+                onClick={handlePrintNota}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Cetak Nota
+              </Button>
+              <Button 
                 onClick={() => {
                   setShowPayLaterDialog(false);
                   window.location.href = '/';
                 }}
-                className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black"
+                variant="outline"
+                className="w-full"
               >
                 Kembali ke Beranda
               </Button>

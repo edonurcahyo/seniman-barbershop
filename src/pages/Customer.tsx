@@ -14,6 +14,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import axiosInstance from '@/lib/axios';
+import { Printer } from 'lucide-react'; 
+import NotaPemesanan from '@/components/NotaPemesanan'; 
+import { printNota } from '@/lib/printNota'; 
 import { 
   Calendar, 
   Scissors, 
@@ -112,7 +115,10 @@ const Customer = () => {
     nama: '',
     email: '',
     no_hp: '',
-    alamat: ''
+    alamat: '',
+    current_password: '',     // 🔥 TAMBAHKAN
+    new_password: '',         // 🔥 TAMBAHKAN
+    new_password_confirmation: '' // 🔥 TAMBAHKAN
   });
 
   // ============ FUNGSI PAYMENT SETTINGS ============
@@ -224,7 +230,10 @@ const Customer = () => {
         nama: user.nama || '',
         email: user.email || '',
         no_hp: user.no_hp || '',
-        alamat: user.alamat || ''
+        alamat: user.alamat || '',
+        current_password: '',
+        new_password: '',
+        new_password_confirmation: ''
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -303,37 +312,190 @@ const Customer = () => {
   };
 
   const handleUpdateProfile = async () => {
-    if (!editForm.nama || !editForm.email || !editForm.no_hp) {
+    // 🔥 VALIDASI NAMA
+    if (!editForm.nama || !editForm.nama.trim()) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Nama, Email, dan No HP harus diisi",
+        description: "Nama tidak boleh kosong",
       });
       return;
+    }
+
+    // 🔥 VALIDASI EMAIL
+    if (!editForm.email || !editForm.email.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Email tidak boleh kosong",
+      });
+      return;
+    }
+
+    // 🔥 VALIDASI FORMAT EMAIL
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editForm.email)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Format email tidak valid",
+      });
+      return;
+    }
+
+    // 🔥 VALIDASI NO HP
+    if (!editForm.no_hp || !editForm.no_hp.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Nomor telepon tidak boleh kosong",
+      });
+      return;
+    }
+
+    // 🔥 VALIDASI PASSWORD (jika ada yang diisi)
+    const isPasswordFilled = editForm.current_password || editForm.new_password || editForm.new_password_confirmation;
+    
+    if (isPasswordFilled) {
+      if (!editForm.current_password) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password saat ini harus diisi untuk mengganti password",
+        });
+        return;
+      }
+      
+      if (!editForm.new_password) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru harus diisi",
+        });
+        return;
+      }
+      
+      if (!editForm.new_password_confirmation) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Konfirmasi password baru harus diisi",
+        });
+        return;
+      }
+      
+      if (editForm.new_password.length < 6) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru minimal 6 karakter",
+        });
+        return;
+      }
+      
+      if (editForm.new_password !== editForm.new_password_confirmation) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Password baru dan konfirmasi password tidak sama",
+        });
+        return;
+      }
     }
 
     setSavingProfile(true);
 
     try {
       const userStr = localStorage.getItem('user');
-      if (!userStr) return;
+      if (!userStr) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Session expired, silakan login kembali",
+        });
+        navigate('/login');
+        return;
+      }
       
       const user = JSON.parse(userStr);
-      const updatedUser = { ...user, ...editForm };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setUserData(updatedUser);
+      const pelangganId = user.id_pelanggan;
+
+      // 🔥 BUAT PAYLOAD
+      const payload: any = {
+        nama: editForm.nama.trim(),
+        email: editForm.email.trim(),
+        no_hp: editForm.no_hp.trim(),
+        alamat: editForm.alamat || '',
+      };
+
+      // 🔥 Jika ada password baru, kirim juga
+      if (editForm.new_password) {
+        payload.current_password = editForm.current_password;
+        payload.new_password = editForm.new_password;
+        payload.new_password_confirmation = editForm.new_password_confirmation;
+      }
+
+      console.log('Sending update profile payload:', payload);
+
+      // 🔥 KIRIM KE API (sudah ada route PUT /pelanggan/{id})
+      const response = await axiosInstance.put(`/pelanggan/${pelangganId}`, payload);
+
+      console.log('Update response:', response.data);
+
+      if (response.data.success) {
+        // 🔥 UPDATE LOCAL STORAGE
+        const updatedUser = {
+          ...user,
+          nama: editForm.nama.trim(),
+          email: editForm.email.trim(),
+          no_hp: editForm.no_hp.trim(),
+          alamat: editForm.alamat || '',
+        };
+        
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        localStorage.setItem('customer_email', updatedUser.email);
+        localStorage.setItem('customer_name', updatedUser.nama);
+        
+        setUserData(updatedUser);
+        
+        // 🔥 RESET FORM PASSWORD
+        setEditForm({
+          ...editForm,
+          current_password: '',
+          new_password: '',
+          new_password_confirmation: ''
+        });
+
+        toast({
+          title: "Berhasil!",
+          description: "Profil Anda telah diperbarui.",
+        });
+        
+        setShowEditProfileDialog(false);
+      } else {
+        throw new Error(response.data.message || 'Gagal memperbarui profil');
+      }
+
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
       
-      toast({
-        title: "Berhasil!",
-        description: "Profil Anda telah diperbarui.",
-      });
+      let errorMessage = 'Terjadi kesalahan saat memperbarui profil';
       
-      setShowEditProfileDialog(false);
-    } catch (error) {
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      'Server error';
+      } else if (error.request) {
+        errorMessage = 'Tidak ada response dari server. Periksa koneksi internet Anda.';
+      } else {
+        errorMessage = error.message || 'Terjadi kesalahan';
+      }
+
       toast({
         variant: "destructive",
         title: "Gagal Memperbarui",
-        description: "Terjadi kesalahan",
+        description: errorMessage,
       });
     } finally {
       setSavingProfile(false);
@@ -534,6 +696,10 @@ const Customer = () => {
       case 'qris': return 'QRIS';
       default: return method;
     }
+  };
+
+  const handlePrintNota = () => {
+    printNota();
   };
 
   const getFilteredReservations = () => {
@@ -747,33 +913,156 @@ const Customer = () => {
       </div>
 
       {/* Edit Profile Dialog */}
-      <Dialog open={showEditProfileDialog} onOpenChange={setShowEditProfileDialog}>
+      <Dialog open={showEditProfileDialog} onOpenChange={(open) => {
+        if (!open) {
+          // 🔥 Reset form password saat dialog ditutup tanpa menyimpan
+          setEditForm({
+            ...editForm,
+            current_password: '',
+            new_password: '',
+            new_password_confirmation: ''
+          });
+        }
+        setShowEditProfileDialog(open);
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Edit Profil</DialogTitle>
-            <DialogDescription>Perbarui informasi profil Anda</DialogDescription>
+            <DialogDescription>
+              Perbarui informasi profil Anda. Biarkan kosong jika tidak ingin mengubah password.
+            </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4 py-4">
+            {/* 🔥 NAMA LENGKAP */}
             <div className="space-y-2">
-              <Label>Nama Lengkap</Label>
-              <Input value={editForm.nama} onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })} />
+              <Label htmlFor="edit-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
+              <Input
+                id="edit-nama"
+                value={editForm.nama}
+                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                placeholder="Masukkan nama lengkap"
+                disabled={savingProfile}
+              />
             </div>
+            
+            {/* 🔥 EMAIL */}
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <Label htmlFor="edit-email">Email <span className="text-red-500">*</span></Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                placeholder="email@example.com"
+                disabled={savingProfile}
+              />
             </div>
+            
+            {/* 🔥 NO HP */}
             <div className="space-y-2">
-              <Label>Nomor Telepon</Label>
-              <Input value={editForm.no_hp} onChange={(e) => setEditForm({ ...editForm, no_hp: e.target.value })} />
+              <Label htmlFor="edit-phone">Nomor Telepon <span className="text-red-500">*</span></Label>
+              <Input
+                id="edit-phone"
+                value={editForm.no_hp}
+                onChange={(e) => setEditForm({ ...editForm, no_hp: e.target.value })}
+                placeholder="08123456789"
+                disabled={savingProfile}
+              />
             </div>
+            
+            {/* 🔥 ALAMAT */}
             <div className="space-y-2">
-              <Label>Alamat</Label>
-              <Input value={editForm.alamat || ''} onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })} />
+              <Label htmlFor="edit-address">Alamat</Label>
+              <Input
+                id="edit-address"
+                value={editForm.alamat || ''}
+                onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
+                placeholder="Jl. Contoh No. 123"
+                disabled={savingProfile}
+              />
+            </div>
+            
+            {/* 🔥 PISAH DENGAN BORDER - BAGIAN PASSWORD */}
+            <div className="border-t pt-4">
+              <h4 className="font-semibold text-sm text-gray-700 mb-2">Ganti Password (Opsional)</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                Isi hanya jika ingin mengganti password. Semua field password harus diisi.
+              </p>
+              
+              {/* 🔥 PASSWORD SAAT INI */}
+              <div className="space-y-2 mb-3">
+                <Label htmlFor="current-password">Password Saat Ini</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  placeholder="Masukkan password saat ini"
+                  value={editForm.current_password}
+                  onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
+                  disabled={savingProfile}
+                />
+              </div>
+              
+              {/* 🔥 PASSWORD BARU */}
+              <div className="space-y-2 mb-3">
+                <Label htmlFor="new-password">Password Baru</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="Masukkan password baru (min 6 karakter)"
+                  value={editForm.new_password}
+                  onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
+                  disabled={savingProfile}
+                />
+              </div>
+              
+              {/* 🔥 KONFIRMASI PASSWORD BARU */}
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Konfirmasi password baru"
+                  value={editForm.new_password_confirmation}
+                  onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
+                  disabled={savingProfile}
+                />
+              </div>
+              
+              {/* 🔥 INFORMASI TAMBAHAN */}
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Tips:</strong> Password baru minimal 6 karakter. 
+                  Password akan tetap sama jika tidak diisi.
+                </p>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditProfileDialog(false)}>Batal</Button>
-            <Button onClick={handleUpdateProfile} disabled={savingProfile} className="bg-amber-600">
+
+          <DialogFooter className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // 🔥 Reset form password
+                setEditForm({
+                  ...editForm,
+                  current_password: '',
+                  new_password: '',
+                  new_password_confirmation: ''
+                });
+                setShowEditProfileDialog(false);
+              }}
+              disabled={savingProfile}
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Batal
+            </Button>
+            <Button 
+              onClick={handleUpdateProfile} 
+              disabled={savingProfile} 
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <Save className="h-4 w-4 mr-2" />
               {savingProfile ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </DialogFooter>
@@ -789,6 +1078,9 @@ const Customer = () => {
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-6">
+                <div className="hidden">
+                  <NotaPemesanan reservation={selectedReservation} />
+                </div>
               <div className="flex justify-between items-start p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-600">Kode Reservasi</p>
@@ -827,8 +1119,17 @@ const Customer = () => {
                   <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{selectedReservation.catatan}</p>
                 </div>
               )}
-
+              
               <div className="flex justify-end space-x-3 pt-4 border-t">
+                {/* 🔥 TOMBOL CETAK NOTA */}
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrintNota}
+                  className="border-amber-600 text-amber-600 hover:bg-amber-50"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Cetak Nota
+                </Button>
                 <Button variant="outline" onClick={() => setShowDetailDialog(false)}>Tutup</Button>
                 {selectedReservation.status === 'pending' && (
                   <>
