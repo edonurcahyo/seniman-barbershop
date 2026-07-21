@@ -1,4 +1,4 @@
-// src/pages/Customer.tsx - FULL CODE YANG SUDAH DIPERBAIKI
+// src/pages/Customer.tsx - FULL CODE LENGKAP
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -70,7 +70,7 @@ interface ReservationData {
   total_harga: number;
   tanggal: string;
   waktu: string;
-  status: 'pending' | 'paid' | 'cancelled';
+  status: 'pending' | 'paid' | 'cancelled' | 'dikonfirmasi';
   metode_pembayaran: 'cash' | 'transfer' | 'qris';
   bukti_pembayaran?: string;
   catatan?: string;
@@ -116,9 +116,9 @@ const Customer = () => {
     email: '',
     no_hp: '',
     alamat: '',
-    current_password: '',     // 🔥 TAMBAHKAN
-    new_password: '',         // 🔥 TAMBAHKAN
-    new_password_confirmation: '' // 🔥 TAMBAHKAN
+    current_password: '',
+    new_password: '',
+    new_password_confirmation: ''
   });
 
   // ============ FUNGSI PAYMENT SETTINGS ============
@@ -284,7 +284,7 @@ const Customer = () => {
           tanggal: '2024-06-20',
           waktu: '14:00',
           status: 'pending',
-          metode_pembayaran: 'transfer',
+          metode_pembayaran: 'cash',
           catatan: 'Potong agak pendek',
           created_at: new Date().toISOString()
         },
@@ -312,7 +312,7 @@ const Customer = () => {
   };
 
   const handleUpdateProfile = async () => {
-    // 🔥 VALIDASI NAMA
+    // VALIDASI NAMA
     if (!editForm.nama || !editForm.nama.trim()) {
       toast({
         variant: "destructive",
@@ -322,7 +322,7 @@ const Customer = () => {
       return;
     }
 
-    // 🔥 VALIDASI EMAIL
+    // VALIDASI EMAIL
     if (!editForm.email || !editForm.email.trim()) {
       toast({
         variant: "destructive",
@@ -332,7 +332,7 @@ const Customer = () => {
       return;
     }
 
-    // 🔥 VALIDASI FORMAT EMAIL
+    // VALIDASI FORMAT EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editForm.email)) {
       toast({
@@ -343,7 +343,7 @@ const Customer = () => {
       return;
     }
 
-    // 🔥 VALIDASI NO HP
+    // VALIDASI NO HP
     if (!editForm.no_hp || !editForm.no_hp.trim()) {
       toast({
         variant: "destructive",
@@ -353,7 +353,7 @@ const Customer = () => {
       return;
     }
 
-    // 🔥 VALIDASI PASSWORD (jika ada yang diisi)
+    // VALIDASI PASSWORD (jika ada yang diisi)
     const isPasswordFilled = editForm.current_password || editForm.new_password || editForm.new_password_confirmation;
     
     if (isPasswordFilled) {
@@ -420,7 +420,7 @@ const Customer = () => {
       const user = JSON.parse(userStr);
       const pelangganId = user.id_pelanggan;
 
-      // 🔥 BUAT PAYLOAD
+      // BUAT PAYLOAD
       const payload: any = {
         nama: editForm.nama.trim(),
         email: editForm.email.trim(),
@@ -428,7 +428,7 @@ const Customer = () => {
         alamat: editForm.alamat || '',
       };
 
-      // 🔥 Jika ada password baru, kirim juga
+      // Jika ada password baru, kirim juga
       if (editForm.new_password) {
         payload.current_password = editForm.current_password;
         payload.new_password = editForm.new_password;
@@ -437,13 +437,13 @@ const Customer = () => {
 
       console.log('Sending update profile payload:', payload);
 
-      // 🔥 KIRIM KE API (sudah ada route PUT /pelanggan/{id})
+      // KIRIM KE API
       const response = await axiosInstance.put(`/pelanggan/${pelangganId}`, payload);
 
       console.log('Update response:', response.data);
 
       if (response.data.success) {
-        // 🔥 UPDATE LOCAL STORAGE
+        // UPDATE LOCAL STORAGE
         const updatedUser = {
           ...user,
           nama: editForm.nama.trim(),
@@ -458,7 +458,7 @@ const Customer = () => {
         
         setUserData(updatedUser);
         
-        // 🔥 RESET FORM PASSWORD
+        // RESET FORM PASSWORD
         setEditForm({
           ...editForm,
           current_password: '',
@@ -513,8 +513,6 @@ const Customer = () => {
     navigate('/login');
   };
 
-  // src/pages/Customer.tsx - Perbaiki handleConfirmPayment
-
   const handleConfirmPayment = async () => {
     if (!selectedReservation) return;
 
@@ -545,7 +543,6 @@ const Customer = () => {
         
         console.log('Upload response:', uploadResponse.data);
         
-        // Ambil URL dari response (sesuai dengan struktur response dari backend)
         buktiUrl = uploadResponse.data.bukti_url || uploadResponse.data.data?.bukti_url;
         console.log('Bukti URL:', buktiUrl);
       }
@@ -593,25 +590,45 @@ const Customer = () => {
   };
 
   const handleCancelReservation = async (id_reservasi: number) => {
+    if (!window.confirm('Apakah Anda yakin ingin membatalkan reservasi ini?')) {
+      return;
+    }
+
     try {
-      setReservations(prev => prev.map(res => 
-        res.id_reservasi === id_reservasi 
-          ? { ...res, status: 'cancelled' }
-          : res
-      ));
+      const response = await axiosInstance.put(`/reservasi/${id_reservasi}/batal`);
       
-      toast({
-        title: "Reservasi Dibatalkan",
-        description: "Reservasi Anda telah dibatalkan.",
-      });
+      console.log('Cancel response:', response.data);
       
-      setShowDetailDialog(false);
+      if (response.data.success) {
+        setReservations(prev => prev.map(res => 
+          res.id_reservasi === id_reservasi 
+            ? { ...res, status: 'cancelled' }
+            : res
+        ));
+        
+        toast({
+          title: "Berhasil!",
+          description: "Reservasi Anda telah dibatalkan.",
+        });
+        
+        setShowDetailDialog(false);
+      } else {
+        throw new Error(response.data.message || 'Gagal membatalkan reservasi');
+      }
+    } catch (error: any) {
+      console.error('Error cancelling reservation:', error);
       
-    } catch (error) {
+      let errorMessage = 'Terjadi kesalahan saat membatalkan reservasi';
+      if (error.response) {
+        errorMessage = error.response.data?.message || 'Server error';
+      } else if (error.request) {
+        errorMessage = 'Tidak ada response dari server';
+      }
+      
       toast({
         variant: "destructive",
-        title: "Gagal Membatalkan",
-        description: "Terjadi kesalahan",
+        title: "Gagal",
+        description: errorMessage,
       });
     }
   };
@@ -663,12 +680,14 @@ const Customer = () => {
     });
   };
 
+  // 🔥 STATUS BADGE - Menampilkan "Menunggu Konfirmasi" untuk semua pending
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'paid':
-        return <Badge className="bg-green-500 text-white">Lunas</Badge>;
+      case 'dikonfirmasi':
+        return <Badge className="bg-green-500 text-white">Lunas ✓</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500 text-white">Menunggu Pembayaran</Badge>;
+        return <Badge className="bg-yellow-500 text-white">Menunggu Konfirmasi</Badge>;
       case 'cancelled':
         return <Badge className="bg-red-500 text-white">Dibatalkan</Badge>;
       default:
@@ -698,6 +717,7 @@ const Customer = () => {
     }
   };
 
+  // 🔥 FUNGSI CETAK NOTA
   const handlePrintNota = () => {
     printNota();
   };
@@ -716,7 +736,7 @@ const Customer = () => {
     if (activeTab === 'upcoming') {
       filtered = filtered.filter(res => res.status === 'pending');
     } else if (activeTab === 'history') {
-      filtered = filtered.filter(res => res.status === 'paid' || res.status === 'cancelled');
+      filtered = filtered.filter(res => res.status === 'paid' || res.status === 'cancelled' || res.status === 'dikonfirmasi');
     }
     
     return filtered.sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
@@ -724,8 +744,8 @@ const Customer = () => {
 
   const customerStats = {
     upcomingReservations: reservations.filter(r => r.status === 'pending').length,
-    completedReservations: reservations.filter(r => r.status === 'paid').length,
-    totalSpent: reservations.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.total_harga, 0),
+    completedReservations: reservations.filter(r => r.status === 'paid' || r.status === 'dikonfirmasi').length,
+    totalSpent: reservations.filter(r => r.status === 'paid' || r.status === 'dikonfirmasi').reduce((sum, r) => sum + r.total_harga, 0),
     favoriteService: getFavoriteService()
   };
 
@@ -826,7 +846,7 @@ const Customer = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{customerStats.upcomingReservations}</div>
-                <p className="text-xs text-muted-foreground">Menunggu pembayaran</p>
+                <p className="text-xs text-muted-foreground">Menunggu konfirmasi</p>
               </CardContent>
             </Card>
             <Card>
@@ -884,7 +904,7 @@ const Customer = () => {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="reservations">Semua Reservasi</TabsTrigger>
-                  <TabsTrigger value="upcoming">Menunggu Bayar</TabsTrigger>
+                  <TabsTrigger value="upcoming">Menunggu Konfirmasi</TabsTrigger>
                   <TabsTrigger value="history">Riwayat</TabsTrigger>
                 </TabsList>
 
@@ -897,6 +917,15 @@ const Customer = () => {
                   }}
                   onPayNow={(res) => {
                     console.log('Pay now clicked:', res);
+                    // 🔥 Cek apakah metode pembayaran Tunai
+                    if (res.metode_pembayaran === 'cash') {
+                      toast({
+                        title: "Informasi",
+                        description: "Pembayaran tunai dilakukan di tempat. Tunggu konfirmasi dari admin.",
+                        variant: "default",
+                      });
+                      return;
+                    }
                     setSelectedReservation(res);
                     setShowPaymentDialog(true);
                   }}
@@ -915,7 +944,6 @@ const Customer = () => {
       {/* Edit Profile Dialog */}
       <Dialog open={showEditProfileDialog} onOpenChange={(open) => {
         if (!open) {
-          // 🔥 Reset form password saat dialog ditutup tanpa menyimpan
           setEditForm({
             ...editForm,
             current_password: '',
@@ -934,7 +962,6 @@ const Customer = () => {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* 🔥 NAMA LENGKAP */}
             <div className="space-y-2">
               <Label htmlFor="edit-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
               <Input
@@ -946,7 +973,6 @@ const Customer = () => {
               />
             </div>
             
-            {/* 🔥 EMAIL */}
             <div className="space-y-2">
               <Label htmlFor="edit-email">Email <span className="text-red-500">*</span></Label>
               <Input
@@ -959,7 +985,6 @@ const Customer = () => {
               />
             </div>
             
-            {/* 🔥 NO HP */}
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Nomor Telepon <span className="text-red-500">*</span></Label>
               <Input
@@ -971,7 +996,6 @@ const Customer = () => {
               />
             </div>
             
-            {/* 🔥 ALAMAT */}
             <div className="space-y-2">
               <Label htmlFor="edit-address">Alamat</Label>
               <Input
@@ -983,14 +1007,12 @@ const Customer = () => {
               />
             </div>
             
-            {/* 🔥 PISAH DENGAN BORDER - BAGIAN PASSWORD */}
             <div className="border-t pt-4">
               <h4 className="font-semibold text-sm text-gray-700 mb-2">Ganti Password (Opsional)</h4>
               <p className="text-xs text-gray-500 mb-3">
                 Isi hanya jika ingin mengganti password. Semua field password harus diisi.
               </p>
               
-              {/* 🔥 PASSWORD SAAT INI */}
               <div className="space-y-2 mb-3">
                 <Label htmlFor="current-password">Password Saat Ini</Label>
                 <Input
@@ -1003,7 +1025,6 @@ const Customer = () => {
                 />
               </div>
               
-              {/* 🔥 PASSWORD BARU */}
               <div className="space-y-2 mb-3">
                 <Label htmlFor="new-password">Password Baru</Label>
                 <Input
@@ -1016,7 +1037,6 @@ const Customer = () => {
                 />
               </div>
               
-              {/* 🔥 KONFIRMASI PASSWORD BARU */}
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
                 <Input
@@ -1029,7 +1049,6 @@ const Customer = () => {
                 />
               </div>
               
-              {/* 🔥 INFORMASI TAMBAHAN */}
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                 <p className="text-xs text-blue-700">
                   💡 <strong>Tips:</strong> Password baru minimal 6 karakter. 
@@ -1043,7 +1062,6 @@ const Customer = () => {
             <Button 
               variant="outline" 
               onClick={() => {
-                // 🔥 Reset form password
                 setEditForm({
                   ...editForm,
                   current_password: '',
@@ -1069,7 +1087,7 @@ const Customer = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog - DENGAN TOMBOL CETAK NOTA */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1078,9 +1096,25 @@ const Customer = () => {
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-6">
-                <div className="hidden">
-                  <NotaPemesanan reservation={selectedReservation} />
-                </div>
+              {/* 🔥 KOMPONEN NOTA (HIDDEN) - Untuk dicetak */}
+              <div className="hidden">
+                <NotaPemesanan 
+                  reservation={{
+                    kode_reservasi: selectedReservation.kode_reservasi,
+                    nama_layanan: selectedReservation.nama_layanan,
+                    total_harga: selectedReservation.total_harga,
+                    tanggal: selectedReservation.tanggal,
+                    waktu: selectedReservation.waktu,
+                    nama_cabang: selectedReservation.nama_cabang,
+                    cabang_alamat: selectedReservation.cabang_alamat,
+                    pelanggan_nama: selectedReservation.pelanggan_nama || userData?.nama,
+                    durasi: selectedReservation.durasi,
+                    metode_pembayaran: selectedReservation.metode_pembayaran,
+                    status: selectedReservation.status
+                  }}
+                />
+              </div>
+              
               <div className="flex justify-between items-start p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-600">Kode Reservasi</p>
@@ -1120,7 +1154,7 @@ const Customer = () => {
                 </div>
               )}
               
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
                 {/* 🔥 TOMBOL CETAK NOTA */}
                 <Button 
                   variant="outline" 
@@ -1133,10 +1167,29 @@ const Customer = () => {
                 <Button variant="outline" onClick={() => setShowDetailDialog(false)}>Tutup</Button>
                 {selectedReservation.status === 'pending' && (
                   <>
-                    <Button onClick={() => { setShowDetailDialog(false); setShowPaymentDialog(true); }} className="bg-amber-600">
-                      Bayar Sekarang
-                    </Button>
-                    <Button variant="destructive" onClick={() => handleCancelReservation(selectedReservation.id_reservasi)}>
+                    {selectedReservation.metode_pembayaran === 'cash' ? (
+                      <Button 
+                        disabled
+                        className="bg-gray-400 text-white cursor-not-allowed"
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Menunggu Konfirmasi
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => { 
+                          setShowDetailDialog(false); 
+                          setShowPaymentDialog(true); 
+                        }} 
+                        className="bg-amber-600 hover:bg-amber-700"
+                      >
+                        Bayar Sekarang
+                      </Button>
+                    )}
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => handleCancelReservation(selectedReservation.id_reservasi)}
+                    >
                       Batalkan
                     </Button>
                   </>

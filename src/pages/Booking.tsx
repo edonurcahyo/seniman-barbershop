@@ -1,4 +1,4 @@
-// src/pages/Booking.tsx - FULL CODE LENGKAP
+// src/pages/Booking.tsx - FULL CODE YANG SUDAH DIPERBAIKI
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,14 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarIcon, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle, MapPin, Store, Phone, Clock as ClockIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { Printer } from 'lucide-react'; 
-import NotaPemesanan from '@/components/NotaPemesanan'; 
+import { Printer } from 'lucide-react';
+import NotaPemesanan from '@/components/NotaPemesanan';
 import { printNota } from '@/lib/printNota';
 import {
   Dialog,
@@ -47,7 +47,7 @@ interface TimeSlotData {
   id_slot: number;
   jam_mulai: string;
   jam_selesai: string;
-   status: 'tersedia' | 'dibooking' | 'lewat'; 
+  status: 'tersedia' | 'dibooking' | 'lewat';
 }
 
 interface ReservationData {
@@ -88,6 +88,7 @@ const Booking = () => {
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
   const [showPayLaterDialog, setShowPayLaterDialog] = useState(false);
+  const [showCashSuccessDialog, setShowCashSuccessDialog] = useState(false);
   const [savedReservation, setSavedReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -110,7 +111,7 @@ const Booking = () => {
     notes: ''
   });
 
-   const handlePrintNota = () => {
+  const handlePrintNota = () => {
     printNota();
   };
 
@@ -271,21 +272,34 @@ const Booking = () => {
     return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   };
 
-  // src/pages/Booking.tsx - getAvailableTimeSlots
+  // 🔥 Helper function untuk parse time string
+  const parseTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+
+  // 🔥 Helper function untuk menghitung estimasi selesai
+  const getEstimatedEndTime = (startTime: string, durationMinutes: number) => {
+    const startDate = parseTime(startTime);
+    const endDate = addMinutes(startDate, durationMinutes);
+    return format(endDate, 'HH:mm');
+  };
+
+  // 🔥 Get available time slots - TAMPILKAN SEMUA SLOT 15 MENIT
   const getAvailableTimeSlots = () => {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const isToday = date && format(date, 'yyyy-MM-dd') === today;
     
+    // TAMPILKAN SEMUA SLOT (10:00, 10:15, 10:30, 10:45, 11:00, ...)
     const slots = timeSlots.map(slot => {
       const [hours, minutes] = slot.jam_mulai.split(':').map(Number);
       const slotMinutes = hours * 60 + minutes;
       
-      // 🔥 CEK APAKAH SLOT SUDAH LEWAT
       const isPassed = isToday && slotMinutes < currentMinutes;
-      
-      // 🔥 CEK APAKAH SLOT TERSEDIA
       const isAvailable = slot.status === 'tersedia' && !isPassed;
       
       return {
@@ -336,10 +350,9 @@ const Booking = () => {
       setStep(step - 1);
     }
   };
-
-  // 🔥 Handle booking untuk metode Tunai (langsung booking tanpa payment dialog)
+  
+  // 🔥 Handle booking untuk metode Tunai
   const handleCashBooking = async () => {
-    // Validasi data diri
     if (!formData.nama || !formData.email || !formData.phone) {
       toast({ 
         variant: "destructive", 
@@ -381,15 +394,30 @@ const Booking = () => {
         nama: formData.nama,
         email: formData.email,
         no_hp: formData.phone,
-        status_pembayaran: 'paid'  // Tunai langsung dianggap lunas
+        status_pembayaran: 'pending' // 🔥 Tunai tidak langsung lunas
       });
 
-      // Tampilkan dialog sukses
-      setPaymentConfirmed(true);
+      if (response.data) {
+        setSavedReservation({
+          id_reservasi: response.data.id_reservasi || '',
+          kode_reservasi: response.data.kode_reservasi || 'RES-001',
+          id_pelanggan: user.id_pelanggan,
+          id_layanan: parseInt(selectedService),
+          id_slot: selectedSlotId || 0,
+          tanggal: format(date!, 'yyyy-MM-dd'),
+          total_harga: selectedServiceData.harga,
+          metode_pembayaran: 'cash',
+          status_pembayaran: 'pending',
+          catatan: formData.notes,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      setShowCashSuccessDialog(true);
       
       toast({
         title: "Booking Berhasil! 🎉",
-        description: "Reservasi Anda berhasil dipesan. Silakan datang sesuai jadwal.",
+        description: "Reservasi Anda berhasil dipesan. Silakan datang sesuai jadwal dan lakukan pembayaran tunai di tempat.",
       });
       
       // Refresh slot waktu
@@ -408,7 +436,7 @@ const Booking = () => {
     }
   };
 
-  // Simpan reservasi ke database (Bayar Nanti) - FIELD NAMA
+  // Simpan reservasi ke database (Bayar Nanti)
   const handleSaveReservation = async () => {
     if (!formData.nama || !formData.email || !formData.phone) {
       toast({ 
@@ -473,7 +501,7 @@ const Booking = () => {
     }
   };
 
-  // Lanjut ke pembayaran (Bayar Sekarang) - FIELD NAMA
+  // Lanjut ke pembayaran (Bayar Sekarang)
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -516,7 +544,7 @@ const Booking = () => {
     setPaymentProofPreview(null);
   };
 
-  // Handle Payment Confirm - FIELD NAMA
+  // Handle Payment Confirm
   const handlePaymentConfirm = async () => {
     if (selectedPayment !== 'cash' && !paymentProof) {
       toast({ 
@@ -576,6 +604,24 @@ const Booking = () => {
       });
 
       setShowPaymentDialog(false);
+      
+      // 🔥 Simpan data reservasi untuk dialog sukses
+      if (response.data) {
+        setSavedReservation({
+          id_reservasi: response.data.id_reservasi || '',
+          kode_reservasi: response.data.kode_reservasi || 'RES-001',
+          id_pelanggan: user.id_pelanggan,
+          id_layanan: parseInt(selectedService),
+          id_slot: selectedSlotId || 0,
+          tanggal: format(date!, 'yyyy-MM-dd'),
+          total_harga: selectedServiceData.harga,
+          metode_pembayaran: selectedPayment || 'transfer',
+          status_pembayaran: 'paid',
+          catatan: formData.notes,
+          created_at: new Date().toISOString()
+        });
+      }
+      
       setPaymentConfirmed(true);
       
       toast({
@@ -651,7 +697,7 @@ const Booking = () => {
             </div>
           </div>
 
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             {/* Progress Steps */}
             <div className="flex justify-center mb-10">
               <div className="relative flex items-center w-full max-w-3xl">
@@ -723,15 +769,15 @@ const Booking = () => {
                         </Popover>
                       </div>
                       <div>
-                        <Label className="block mb-2">Pilih Waktu (10:00 - 22:00)</Label>
-                        {/* 🔥 TAMPILKAN INFORMASI JIKA ADA SLOT YANG SUDAH LEWAT */}
+                        <Label className="block mb-2">Pilih Waktu (10:00 - 22:00, interval 15 menit)</Label>
+                        
                         {date && new Date(date).toDateString() === new Date().toDateString() && (
                           <p className="text-xs text-gray-500 mb-2">
                             ⏰ Slot waktu yang sudah lewat tidak dapat dipilih
                           </p>
                         )}
                         
-                        <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                        <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
                           {availableTimeSlots.map((slot) => (
                             <Button 
                               key={slot.slotId}
@@ -740,7 +786,7 @@ const Booking = () => {
                               onClick={() => handleTimeSelect(slot.time, slot.slotId, slot.isAvailable)} 
                               disabled={!slot.isAvailable}
                               className={cn(
-                                "hover:bg-barber-gold/10 transition-all",
+                                "hover:bg-barber-gold/10 transition-all text-sm",
                                 selectedTime === slot.time && "bg-barber-gold text-black hover:text-black",
                                 slot.isPassed && "bg-gray-300 text-gray-400 cursor-not-allowed hover:bg-gray-300 line-through",
                                 !slot.isAvailable && !slot.isPassed && "bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200"
@@ -751,8 +797,23 @@ const Booking = () => {
                             </Button>
                           ))}
                         </div>
+                        
                         {timeSlots.length === 0 && date && (
                           <p className="text-sm text-gray-500 mt-2 text-center">Memuat slot waktu...</p>
+                        )}
+
+                        {/* Informasi waktu yang dipilih dengan estimasi selesai */}
+                        {selectedTime && selectedServiceData && (
+                          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-sm text-amber-800">
+                              <strong>Anda memilih:</strong> {selectedTime} 
+                              <span className="mx-2">→</span> 
+                              {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
+                            </p>
+                            <p className="text-xs text-amber-600 mt-1">
+                              💇 Layanan {selectedServiceData.nama_layanan} akan selesai dalam {selectedServiceData.durasi} menit
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -797,219 +858,238 @@ const Booking = () => {
                 {step === 4 && (
                   <>
                     <h2 className="text-2xl font-bold mb-6">Konfirmasi Data Anda</h2>
-                    <div className="space-y-6">
-                      {/* Ringkasan Pemesanan */}
-                      <div className="bg-gradient-to-r from-barber-gold/10 to-transparent p-6 rounded-lg border-2 border-barber-gold/20">
-                        <h3 className="font-semibold text-lg mb-4 flex items-center">
-                          <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
-                          Ringkasan Pemesanan
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Layanan</p>
-                            <p className="font-medium">{selectedServiceData?.nama_layanan}</p>
-                            <p className="text-xs text-gray-400">{selectedServiceData?.durasi} menit</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Harga Layanan</p>
-                            <p className="font-medium text-barber-gold">{selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Tanggal & Waktu</p>
-                            <p className="font-medium">{date ? format(date, "d MMMM yyyy") : ''} - {selectedTime}</p>
-                          </div>
-                          <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-sm text-gray-500">Metode Pembayaran</p>
-                            <div className="flex items-center space-x-2">
-                              {getSelectedPaymentMethod() && (
-                                <>
-                                  {React.createElement(getSelectedPaymentMethod()?.icon || 'div', { 
-                                    className: `h-4 w-4 ${getSelectedPaymentMethod()?.color}` 
-                                  })}
-                                  <p className="font-medium">{getSelectedPaymentMethod()?.name}</p>
-                                </>
+                    
+                    {/* LAYOUT DUA KOLOM */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* KOLOM KIRI - Ringkasan Pemesanan & Lokasi */}
+                      <div className="space-y-6">
+                        {/* Ringkasan Pemesanan */}
+                        <div className="bg-gradient-to-r from-barber-gold/10 to-transparent p-6 rounded-lg border-2 border-barber-gold/20">
+                          <h3 className="font-semibold text-lg mb-4 flex items-center">
+                            <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
+                            Ringkasan Pemesanan
+                          </h3>
+                          <div className="space-y-2">
+                            <div className="bg-white p-3 rounded-md shadow-sm">
+                              <p className="text-sm text-gray-500">Layanan</p>
+                              <p className="font-medium">{selectedServiceData?.nama_layanan}</p>
+                              <p className="text-xs text-gray-400">{selectedServiceData?.durasi} menit</p>
+                              {selectedServiceData && selectedTime && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  ⏱️ Estimasi selesai: {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
+                                </p>
                               )}
                             </div>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4 pt-4 border-t-2 border-dashed border-barber-gold/30">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total Pembayaran</span>
-                            <span className="text-2xl font-bold text-barber-gold">
-                              {selectedServiceData && formatRupiah(selectedServiceData.harga)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* INFORMASI CABANG YANG DIPILIH */}
-                      <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
-                        <h3 className="font-semibold text-lg mb-4 flex items-center text-blue-800">
-                          <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                          Lokasi Cabang
-                        </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <Store className="h-5 w-5 text-blue-600" />
+                            <div className="bg-white p-3 rounded-md shadow-sm">
+                              <p className="text-sm text-gray-500">Harga Layanan</p>
+                              <p className="font-medium text-barber-gold">{selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
                             </div>
-                            <div>
-                              <p className="font-semibold text-gray-800">{currentBranch?.name || 'Seniman Barbershop'}</p>
-                              <p className="text-sm text-gray-600 mt-1">{currentBranch?.fullAddress || currentBranch?.address}</p>
+                            <div className="bg-white p-3 rounded-md shadow-sm">
+                              <p className="text-sm text-gray-500">Tanggal & Waktu</p>
+                              <p className="font-medium">{date ? format(date, "d MMMM yyyy") : ''} - {selectedTime}</p>
+                              {selectedServiceData && selectedTime && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  Selesai sekitar: {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
+                                </p>
+                              )}
+                            </div>
+                            <div className="bg-white p-3 rounded-md shadow-sm">
+                              <p className="text-sm text-gray-500">Metode Pembayaran</p>
+                              <div className="flex items-center space-x-2">
+                                {getSelectedPaymentMethod() && (
+                                  <>
+                                    {React.createElement(getSelectedPaymentMethod()?.icon || 'div', { 
+                                      className: `h-4 w-4 ${getSelectedPaymentMethod()?.color}` 
+                                    })}
+                                    <p className="font-medium">{getSelectedPaymentMethod()?.name}</p>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <Phone className="h-4 w-4 text-blue-600" />
+                          
+                          <div className="mt-4 pt-4 border-t-2 border-dashed border-barber-gold/30">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold">Total Pembayaran</span>
+                              <span className="text-2xl font-bold text-barber-gold">
+                                {selectedServiceData && formatRupiah(selectedServiceData.harga)}
+                              </span>
                             </div>
-                            <p className="text-sm text-gray-600">{currentBranch?.phone}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <Clock className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              Jam Operasional: {currentBranch?.operationalHours.monday_friday.open} - {currentBranch?.operationalHours.monday_friday.close}
-                            </p>
-                          </div>
-                          {currentBranch?.features && currentBranch.features.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {currentBranch.features.slice(0, 3).map((feature, idx) => (
-                                <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                                  ✓ {feature}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-blue-200">
-                          <a 
-                            href={currentBranch?.mapsUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                          >
-                            📍 Buka di Google Maps
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        </div>
-                      </div>
-
-                      {/* FORM DATA DIRI - SATU FIELD NAMA */}
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-lg flex items-center">
-                          <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
-                          Data Diri
-                        </h3>
-                        
-                        <div>
-                          <Label htmlFor="nama">Nama Lengkap *</Label>
-                          <Input 
-                            id="nama" 
-                            value={formData.nama}
-                            onChange={handleInputChange}
-                            required 
-                            className="mt-1 bg-gray-50" 
-                            readOnly={!!localStorage.getItem('user')}
-                            placeholder="Masukkan nama lengkap Anda"
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="email">Email *</Label>
-                          <Input 
-                            id="email" 
-                            type="email" 
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            required 
-                            className="mt-1 bg-gray-50"
-                            readOnly={!!localStorage.getItem('user')}
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="phone">Nomor Telepon *</Label>
-                          <Input 
-                            id="phone" 
-                            type="tel" 
-                            value={formData.phone}
-                            onChange={handleInputChange}
-                            required 
-                            className="mt-1 bg-gray-50"
-                            readOnly={!!localStorage.getItem('user')}
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
-                          <Textarea 
-                            id="notes" 
-                            value={formData.notes}
-                            onChange={handleInputChange}
-                            placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
-                            className="mt-1"
-                          />
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <input 
-                            type="checkbox" 
-                            id="terms" 
-                            className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
-                            required 
-                          />
-                          <Label htmlFor="terms" className="text-sm text-gray-500">
-                            Saya setuju dengan kebijakan pembatalan. Saya memahami bahwa pembatalan harus dilakukan minimal 24 jam sebelumnya.
-                          </Label>
                         </div>
 
-                        {/* 🔥 TOMBOL AKSI - BERBEDA UNTUK TUNAI */}
-                        <div className="flex gap-4 mt-6">
-                          {selectedPayment === 'cash' ? (
-                            // 🔥 Jika Tunai: Hanya tombol "Booking Sekarang"
-                            <Button 
-                              onClick={handleCashBooking}
-                              className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
-                              disabled={loading}
+                        {/* Lokasi Cabang */}
+                        <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+                          <h3 className="font-semibold text-lg mb-4 flex items-center text-blue-800">
+                            <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                            Lokasi Cabang
+                          </h3>
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="bg-blue-100 p-2 rounded-full">
+                                <Store className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-800">{currentBranch?.name || 'Seniman Barbershop'}</p>
+                                <p className="text-sm text-gray-600 mt-1">{currentBranch?.fullAddress || currentBranch?.address}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-full">
+                                <Phone className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <p className="text-sm text-gray-600">{currentBranch?.phone}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-full">
+                                <Clock className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                Jam Operasional: {currentBranch?.operationalHours.monday_friday.open} - {currentBranch?.operationalHours.monday_friday.close}
+                              </p>
+                            </div>
+                            {currentBranch?.features && currentBranch.features.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {currentBranch.features.slice(0, 3).map((feature, idx) => (
+                                  <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                    ✓ {feature}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-blue-200">
+                            <a 
+                              href={currentBranch?.mapsUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                             >
-                              {loading ? 'Memproses...' : 'Booking Sekarang'}
-                            </Button>
-                          ) : (
-                            // 🔥 Jika Non-Tunai: Tampilkan "Bayar Sekarang" dan "Bayar Nanti"
-                            <>
+                              📍 Buka di Google Maps
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* KOLOM KANAN - Form Data Diri */}
+                      <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+                          <h3 className="font-semibold text-lg mb-4 flex items-center">
+                            <ChevronRight className="h-5 w-5 mr-2 text-barber-gold" />
+                            Data Diri
+                          </h3>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="nama">Nama Lengkap *</Label>
+                              <Input 
+                                id="nama" 
+                                value={formData.nama}
+                                onChange={handleInputChange}
+                                required 
+                                className="mt-1 bg-gray-50" 
+                                readOnly={!!localStorage.getItem('user')}
+                                placeholder="Masukkan nama lengkap Anda"
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="email">Email *</Label>
+                              <Input 
+                                id="email" 
+                                type="email" 
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                required 
+                                className="mt-1 bg-gray-50"
+                                readOnly={!!localStorage.getItem('user')}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="phone">Nomor Telepon *</Label>
+                              <Input 
+                                id="phone" 
+                                type="tel" 
+                                value={formData.phone}
+                                onChange={handleInputChange}
+                                required 
+                                className="mt-1 bg-gray-50"
+                                readOnly={!!localStorage.getItem('user')}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="notes">Catatan Khusus (Opsional)</Label>
+                              <Textarea 
+                                id="notes" 
+                                value={formData.notes}
+                                onChange={handleInputChange}
+                                placeholder="Permintaan khusus atau informasi untuk barber Anda..." 
+                                className="mt-1"
+                                rows={3}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center space-x-2">
+                              <input 
+                                type="checkbox" 
+                                id="terms" 
+                                className="h-4 w-4 rounded border-gray-300 text-barber-gold focus:ring-barber-gold" 
+                                required 
+                              />
+                              <Label htmlFor="terms" className="text-sm text-gray-500">
+                                Saya setuju dengan kebijakan pembatalan. Pembatalan minimal 24 jam sebelumnya.
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* TOMBOL AKSI */}
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            {selectedPayment === 'cash' ? (
                               <Button 
-                                onClick={handleProceedToPayment}
-                                className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                                onClick={handleCashBooking}
+                                className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
                                 disabled={loading}
                               >
-                                {loading ? 'Memproses...' : 'Bayar Sekarang'}
+                                {loading ? 'Memproses...' : 'Booking Sekarang'}
                               </Button>
-                              <Button 
-                                onClick={handleSaveReservation}
-                                variant="outline"
-                                className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
-                                disabled={loading}
-                              >
-                                <Clock className="mr-2 h-4 w-4" />
-                                {loading ? 'Memproses...' : 'Bayar Nanti'}
-                              </Button>
-                            </>
+                            ) : (
+                              <>
+                                <Button 
+                                  onClick={handleProceedToPayment}
+                                  className="flex-1 bg-barber-gold hover:bg-barber-gold/90 text-black font-semibold py-6"
+                                  disabled={loading}
+                                >
+                                  {loading ? 'Memproses...' : 'Bayar Sekarang'}
+                                </Button>
+                                <Button 
+                                  onClick={handleSaveReservation}
+                                  variant="outline"
+                                  className="flex-1 border-barber-gold text-barber-gold hover:bg-barber-gold/10 font-semibold py-6"
+                                  disabled={loading}
+                                >
+                                  <Clock className="mr-2 h-4 w-4" />
+                                  {loading ? 'Memproses...' : 'Bayar Nanti'}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          
+                          {selectedPayment !== 'cash' && (
+                            <Alert className="bg-blue-50 border-blue-200">
+                              <AlertCircle className="h-4 w-4 text-blue-600" />
+                              <AlertDescription className="text-xs text-blue-700">
+                                Pilih "Bayar Nanti" untuk menyimpan reservasi. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
+                              </AlertDescription>
+                            </Alert>
                           )}
                         </div>
-                        
-                        {/* 🔥 Alert hanya untuk non-tunai */}
-                        {selectedPayment !== 'cash' && (
-                          <Alert className="bg-blue-50 border-blue-200">
-                            <AlertCircle className="h-4 w-4 text-blue-600" />
-                            <AlertDescription className="text-xs text-blue-700">
-                              Pilih "Bayar Nanti" untuk menyimpan reservasi Anda. Pembayaran harus diselesaikan maksimal 24 jam sebelum jadwal appointment.
-                            </AlertDescription>
-                          </Alert>
-                        )}
                       </div>
                     </div>
                   </>
@@ -1180,17 +1260,17 @@ const Booking = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Sukses Bayar Sekarang */}
+      {/* 🔥 Dialog Sukses Bayar Sekarang (Non-Tunai) */}
       <Dialog open={paymentConfirmed} onOpenChange={setPaymentConfirmed}>
         <DialogContent className="sm:max-w-md">
           <div className="text-center py-6">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
-            <DialogTitle className="text-2xl font-bold mb-2">Pembayaran Berhasil!</DialogTitle>
+            <DialogTitle className="text-2xl font-bold mb-2">Pembayaran Berhasil! 🎉</DialogTitle>
             <DialogDescription className="mb-6">
               Terima kasih telah memesan di Barber Shop kami. 
-              {selectedPayment !== 'cash' && " Bukti pembayaran Anda akan kami verifikasi."}
+              Bukti pembayaran Anda akan kami verifikasi.
               Kami akan mengirimkan konfirmasi ke email Anda.
             </DialogDescription>
             
@@ -1208,7 +1288,7 @@ const Booking = () => {
                     cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
                     pelanggan_nama: formData.nama,
                     durasi: `${selectedServiceData.durasi} menit`,
-                    metode_pembayaran: selectedPayment || 'cash',
+                    metode_pembayaran: selectedPayment || 'transfer',
                     status: 'paid'
                   }}
                 />
@@ -1224,7 +1304,19 @@ const Booking = () => {
                 Cetak Nota
               </Button>
               <Button 
-                onClick={() => window.location.href = '/'}
+                onClick={() => {
+                  setPaymentConfirmed(false);
+                  window.location.href = '/customer';
+                }}
+                variant="outline"
+              >
+                Lihat Reservasi Saya
+              </Button>
+              <Button 
+                onClick={() => {
+                  setPaymentConfirmed(false);
+                  window.location.href = '/';
+                }}
                 variant="outline"
               >
                 Kembali ke Beranda
@@ -1234,6 +1326,72 @@ const Booking = () => {
         </DialogContent>
       </Dialog>
 
+      {/* 🔥 Dialog Sukses Booking Tunai */}
+      <Dialog open={showCashSuccessDialog} onOpenChange={setShowCashSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="h-10 w-10 text-yellow-600" />
+            </div>
+            <DialogTitle className="text-2xl font-bold mb-2">Booking Berhasil! 📋</DialogTitle>
+            <DialogDescription className="mb-6">
+              Reservasi Anda berhasil dibuat. Silakan datang ke cabang yang Anda pilih dan lakukan pembayaran tunai di tempat.
+              <br /><br />
+              <span className="text-yellow-600 font-semibold">⏳ Status: Menunggu Konfirmasi Admin</span>
+            </DialogDescription>
+            
+            {/* 🔥 KOMPONEN NOTA (HIDDEN) */}
+            <div className="hidden">
+              {selectedServiceData && date && (
+                <NotaPemesanan 
+                  reservation={{
+                    kode_reservasi: savedReservation?.kode_reservasi || 'RES-001',
+                    nama_layanan: selectedServiceData.nama_layanan,
+                    total_harga: selectedServiceData.harga,
+                    tanggal: date.toISOString(),
+                    waktu: selectedTime || '10:00',
+                    nama_cabang: currentBranch?.name || 'Seniman Barbershop',
+                    cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
+                    pelanggan_nama: formData.nama,
+                    durasi: `${selectedServiceData.durasi} menit`,
+                    metode_pembayaran: 'cash',
+                    status: 'pending'
+                  }}
+                />
+              )}
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handlePrintNota}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Cetak Nota
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowCashSuccessDialog(false);
+                  window.location.href = '/customer';
+                }}
+                variant="outline"
+              >
+                Lihat Reservasi Saya
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowCashSuccessDialog(false);
+                  window.location.href = '/';
+                }}
+                variant="outline"
+              >
+                Kembali ke Beranda
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Dialog Sukses Bayar Nanti */}
       <Dialog open={showPayLaterDialog} onOpenChange={setShowPayLaterDialog}>
         <DialogContent className="sm:max-w-md">
