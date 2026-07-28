@@ -1,4 +1,4 @@
-// src/lib/printNota.ts
+// src/lib/printNota.ts - TOMBOL DI BAWAH NOTA
 
 export const printNota = () => {
   const printContent = document.getElementById('nota-pemesanan');
@@ -7,15 +7,12 @@ export const printNota = () => {
     return;
   }
   
-  const printWindow = window.open('', '_blank', 'width=500,height=600,scrollbars=yes');
+  const printWindow = window.open('', '_blank', 'width=500,height=800,scrollbars=yes');
   
   if (!printWindow) {
     alert('Popup diblokir. Izinkan popup untuk mencetak nota.');
     return;
   }
-  
-  // Ambil style dari halaman utama
-  const styles = document.querySelector('style')?.innerHTML || '';
   
   printWindow.document.write(`
     <!DOCTYPE html>
@@ -23,46 +20,87 @@ export const printNota = () => {
       <head>
         <title>Nota Pemesanan - Seniman Barbershop</title>
         <style>
-          body { 
-            font-family: 'Courier New', monospace; 
-            padding: 20px; 
-            max-width: 400px; 
-            margin: 0 auto; 
-            background: #fff;
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
           }
-          .no-print { 
-            text-align: center; 
-            margin-top: 20px; 
+          body { 
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+          }
+          #nota-pemesanan {
+            max-width: 420px;
+            width: 100%;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+          }
+          .no-print {
+            text-align: center;
+            padding: 10px 0;
           }
           .no-print button {
-            padding: 10px 20px;
-            margin: 0 5px;
+            padding: 12px 30px;
+            margin: 0 6px;
             border: none;
-            border-radius: 5px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            font-family: Arial, sans-serif;
+            transition: all 0.2s;
           }
           .btn-print {
             background: #C6A43F;
-            color: black;
+            color: #000;
           }
           .btn-print:hover {
             background: #b3932a;
+            transform: scale(1.02);
           }
           .btn-close {
-            background: #ccc;
+            background: #e0e0e0;
             color: #333;
           }
           .btn-close:hover {
-            background: #bbb;
+            background: #ccc;
           }
           @media print {
-            .no-print { display: none; }
-            body { padding: 0; margin: 0; }
+            body { 
+              background: #fff; 
+              padding: 0;
+            }
             #nota-pemesanan { 
-              max-width: 100%; 
-              padding: 15px;
+              border: none; 
+              box-shadow: none; 
+              border-radius: 0;
+              max-width: 100%;
+              margin-bottom: 0;
+            }
+            .no-print { display: none; }
+          }
+          @media (max-width: 480px) {
+            body { padding: 10px; }
+            #nota-pemesanan { border-radius: 4px; }
+            .no-print button { 
+              padding: 10px 20px; 
+              font-size: 13px; 
+              width: 100%;
+              margin: 4px 0;
+            }
+            .no-print { 
+              display: flex; 
+              flex-direction: column; 
+              width: 100%;
+              gap: 6px;
             }
           }
         </style>
@@ -74,11 +112,10 @@ export const printNota = () => {
           <button class="btn-close" onclick="window.close()">✕ Tutup</button>
         </div>
         <script>
-          // Auto print setelah dimuat
           window.onload = function() {
             setTimeout(function() {
               window.print();
-            }, 500);
+            }, 600);
           };
         <\/script>
       </body>

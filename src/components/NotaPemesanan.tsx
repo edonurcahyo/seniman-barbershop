@@ -1,4 +1,4 @@
-// src/components/NotaPemesanan.tsx
+// src/components/NotaPemesanan.tsx - FONT LEBIH BESAR
 
 import React from 'react';
 
@@ -15,6 +15,7 @@ interface NotaPemesananProps {
     durasi: string;
     metode_pembayaran: string;
     status: string;
+    catatan?: string;
   };
 }
 
@@ -25,118 +26,150 @@ const NotaPemesanan: React.FC<NotaPemesananProps> = ({ reservation }) => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', { 
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    return `${days[date.getDay()]}, ${date.toLocaleDateString('id-ID', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
-    });
+    })}`;
   };
 
-  const getStatusText = (status: string) => {
+  const getStatus = (status: string, metode: string) => {
     if (status === 'paid' || status === 'dikonfirmasi') {
-      return { text: '✓ LUNAS', color: 'text-green-700 bg-green-100' };
+      return { text: 'LUNAS', icon: '✅' };
     } else if (status === 'pending') {
-      return { text: '⏳ MENUNGGU PEMBAYARAN', color: 'text-yellow-700 bg-yellow-100' };
+      if (metode === 'cash') {
+        return { text: 'MENUNGGU KONFIRMASI', icon: '⏳' };
+      }
+      return { text: 'MENUNGGU VERIFIKASI', icon: '⏳' };
     } else if (status === 'cancelled' || status === 'dibatalkan') {
-      return { text: '✗ DIBATALKAN', color: 'text-red-700 bg-red-100' };
+      return { text: 'DIBATALKAN', icon: '❌' };
     }
-    return { text: status.toUpperCase(), color: 'text-gray-700 bg-gray-100' };
+    return { text: status.toUpperCase(), icon: '📌' };
   };
-
-  const statusInfo = getStatusText(reservation.status);
 
   const getPaymentMethodText = (method: string) => {
     switch(method) {
-      case 'cash': return 'Tunai';
-      case 'transfer': return 'Transfer Bank';
+      case 'cash': return 'TUNAI';
+      case 'transfer': return 'TRANSFER BANK';
       case 'qris': return 'QRIS';
-      default: return method;
+      default: return method.toUpperCase();
     }
   };
 
+  const statusInfo = getStatus(reservation.status, reservation.metode_pembayaran);
+
   return (
-    <div id="nota-pemesanan" className="bg-white p-6 max-w-sm mx-auto" style={{ fontFamily: 'Courier New, monospace' }}>
-      {/* Kop Surat */}
-      <div className="text-center border-b-2 border-dashed border-gray-300 pb-4 mb-4">
-        <h1 className="text-xl font-bold text-amber-600 tracking-wider">SENIMAN BARBERSHOP</h1>
-        <p className="text-sm text-gray-600 font-semibold">{reservation.nama_cabang}</p>
-        <p className="text-xs text-gray-500">{reservation.cabang_alamat}</p>
-        <p className="text-xs text-gray-500">📞 (031) 1234-5678</p>
-        <div className="mt-2">
-          <span className="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-bold">
-            ✂️ BARBERSHOP
-          </span>
-        </div>
+    <div id="nota-pemesanan" style={{ 
+      fontFamily: 'Courier New, monospace', 
+      fontSize: '14px',
+      maxWidth: '400px',
+      margin: '0 auto',
+      padding: '20px',
+      backgroundColor: '#ffffff',
+      color: '#222222',
+      lineHeight: '1.8'
+    }}>
+      
+      {/* HEADER */}
+      <div style={{ textAlign: 'center', borderBottom: '2px dashed #ccc', paddingBottom: '14px', marginBottom: '14px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#C6A43F' }}>SENIMAN BARBERSHOP</div>
+        <div style={{ fontSize: '13px', color: '#666' }}>{reservation.cabang_alamat}</div>
       </div>
 
-      {/* Judul Nota */}
-      <div className="text-center mb-4">
-        <h2 className="text-lg font-bold uppercase tracking-wider text-gray-800">BUKTI PEMESANAN</h2>
-        <p className="text-xs text-gray-500 mt-1">Reservasi #{reservation.kode_reservasi}</p>
+      {/* TANGGAL */}
+      <div style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>
+        {formatDate(reservation.tanggal)} {reservation.waktu}
       </div>
 
-      {/* Garis Pemisah */}
-      <div className="border-t border-dashed border-gray-300 mb-3"></div>
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
 
-      {/* Detail Pemesanan */}
-      <div className="space-y-1.5 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-600">Tanggal</span>
-          <span className="font-medium">{formatDate(reservation.tanggal)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Waktu</span>
-          <span className="font-medium">{reservation.waktu}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Layanan</span>
-          <span className="font-medium">{reservation.nama_layanan}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Durasi</span>
-          <span className="font-medium">{reservation.durasi}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Cabang</span>
-          <span className="font-medium">{reservation.nama_cabang}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Metode Bayar</span>
-          <span className="font-medium">{getPaymentMethodText(reservation.metode_pembayaran)}</span>
-        </div>
-        {reservation.pelanggan_nama && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Pelanggan</span>
-            <span className="font-medium">{reservation.pelanggan_nama}</span>
+      {/* SLIP PEMBAYARAN */}
+      <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '16px' }}>SLIP PEMBAYARAN</div>
+        <div style={{ fontSize: '12px', color: '#888' }}>Kode: {reservation.kode_reservasi}</div>
+      </div>
+
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
+
+      {/* STATUS */}
+      <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px' }}>
+        {statusInfo.icon} {statusInfo.text}
+      </div>
+
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
+
+      {/* DETAIL - Menggunakan TABLE */}
+      <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse', marginBottom: '10px' }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: '4px 0', color: '#666', width: '50%' }}>Nama Pelanggan</td>
+            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: 'bold' }}>{reservation.pelanggan_nama || '-'}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '4px 0', color: '#666' }}>Layanan</td>
+            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: 'bold' }}>{reservation.nama_layanan}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '4px 0', color: '#666' }}>Durasi</td>
+            <td style={{ padding: '4px 0', textAlign: 'right' }}>{reservation.durasi}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '4px 0', color: '#666' }}>Metode Bayar</td>
+            <td style={{ padding: '4px 0', textAlign: 'right' }}>{getPaymentMethodText(reservation.metode_pembayaran)}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '4px 0', color: '#666' }}>Cabang</td>
+            <td style={{ padding: '4px 0', textAlign: 'right' }}>{reservation.nama_cabang}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
+
+      {/* TOTAL */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>
+        <span>TOTAL</span>
+        <span style={{ color: '#C6A43F' }}>{formatRupiah(reservation.total_harga)}</span>
+      </div>
+
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
+
+      {/* CATATAN */}
+      {reservation.catatan && (
+        <>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+            <div style={{ fontWeight: 'bold' }}>Catatan:</div>
+            <div>{reservation.catatan}</div>
           </div>
-        )}
+          <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
+        </>
+      )}
+
+      {/* INFO */}
+      <div style={{ fontSize: '12px', color: '#888', marginBottom: '10px' }}>
+        <div>⏰ Harap datang 15 menit sebelum jadwal</div>
+        <div>📱 Tunjukkan nota ini saat datang</div>
       </div>
 
-      {/* Garis Pemisah */}
-      <div className="border-t border-dashed border-gray-300 my-3"></div>
+      <div style={{ borderTop: '1px dashed #ddd', marginBottom: '10px' }}></div>
 
-      {/* Total */}
-      <div className="flex justify-between text-lg font-bold">
-        <span className="text-gray-800">TOTAL</span>
-        <span className="text-amber-600">{formatRupiah(reservation.total_harga)}</span>
-      </div>
-
-      {/* Status */}
-      <div className="mt-3 text-center">
-        <span className={`text-xs px-4 py-1.5 rounded-full font-bold ${statusInfo.color}`}>
-          {statusInfo.text}
-        </span>
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-dashed border-gray-300 mt-4 pt-4 text-center">
-        <p className="text-xs font-medium text-gray-700">Terima kasih telah memesan di Seniman Barbershop</p>
-        <p className="text-xs text-gray-500 mt-1">⏰ Harap datang 15 menit sebelum jadwal</p>
-        <p className="text-xs text-gray-500">📱 Tunjukkan nota ini saat datang</p>
-        <div className="mt-2 pt-2 border-t border-gray-200">
-          <p className="text-[10px] text-gray-400">Dicetak pada: {new Date().toLocaleString('id-ID', { hour12: false })}</p>
+      {/* FOOTER */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '13px', color: '#555' }}>Terima kasih telah mempercayai</div>
+        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#C6A43F' }}>Seniman Barbershop</div>
+        <div style={{ fontSize: '10px', color: '#aaa', marginTop: '8px' }}>
+          Dicetak: {new Date().toLocaleString('id-ID', { 
+            day: 'numeric', 
+            month: 'numeric', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })}
         </div>
       </div>
+
     </div>
   );
 };

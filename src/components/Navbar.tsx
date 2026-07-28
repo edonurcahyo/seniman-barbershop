@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
-import { Menu, User, LogOut, Shield } from 'lucide-react';
+import { Menu, X, User, LogOut, Shield } from 'lucide-react';
 import BranchSelector from './BranchSelector';
 
 const Navbar = () => {
@@ -19,15 +19,23 @@ const Navbar = () => {
     };
   }, []);
 
+  // Kunci scroll body saat drawer mobile terbuka
+  useEffect(() => {
+    document.body.style.overflow = isMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMenuOpen]);
+
   const checkLoginStatus = () => {
     // Cek admin login
     const isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
     const adminStr = localStorage.getItem('admin');
-    
+
     // Cek customer login
     const isCustomerLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     const userStr = localStorage.getItem('user');
-    
+
     if (isAdminLoggedIn && adminStr) {
       setIsLoggedIn(true);
       setIsAdmin(true);
@@ -62,20 +70,22 @@ const Navbar = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('customer_phone');
-    
+
     // Hapus data admin
     localStorage.removeItem('admin');
     localStorage.removeItem('admin_token');
     localStorage.removeItem('isAdminLoggedIn');
-    
+
     setIsLoggedIn(false);
     setIsAdmin(false);
     setUserName('');
-    
+    setIsMenuOpen(false);
+
     navigate('/login');
   };
 
   const handleProfileClick = () => {
+    setIsMenuOpen(false);
     if (isAdmin) {
       navigate('/admin');
     } else {
@@ -83,23 +93,25 @@ const Navbar = () => {
     }
   };
 
+  const closeMenu = () => setIsMenuOpen(false);
+
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-md">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex justify-between items-center">
-          <Link to="/" className="flex items-center">
-            <span className="text-2xl font-serif font-light text-barber-gold">Seniman</span>
-            <span className="ml-1 text-2xl font-serif font-bold text-barber-brown">Barbershop</span>
+          <Link to="/" className="flex items-center" onClick={closeMenu}>
+            <span className="text-xl md:text-2xl font-serif font-light text-barber-gold">Seniman</span>
+            <span className="ml-1 text-xl md:text-2xl font-serif font-bold text-barber-brown">Barbershop</span>
           </Link>
-          
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <BranchSelector />
-            
+
             <Link to="/" className="font-medium hover:text-barber-gold transition-colors">Beranda</Link>
             <Link to="/services" className="font-medium hover:text-barber-gold transition-colors">Layanan</Link>
             {/* <Link to="/contact" className="font-medium hover:text-barber-gold transition-colors">Kontak</Link> */}
-            
+
             {isLoggedIn ? (
               <div className="flex items-center space-x-4">
                 {/* Profile Button */}
@@ -114,8 +126,8 @@ const Navbar = () => {
                     {isAdmin ? `Admin: ${userName.split(' ')[0]}` : userName.split(' ')[0]}
                   </span>
                 </button>
-                
-                {/* 🔥 Tombol "Pesan Sekarang" hanya untuk customer (bukan admin) */}
+
+                {/* Tombol "Pesan Sekarang" hanya untuk customer (bukan admin) */}
                 {!isAdmin && (
                   <Link to="/booking">
                     <Button className="bg-barber-gold hover:bg-barber-gold/90 text-black">
@@ -123,7 +135,7 @@ const Navbar = () => {
                     </Button>
                   </Link>
                 )}
-                
+
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
@@ -146,85 +158,115 @@ const Navbar = () => {
               </div>
             )}
           </div>
-          
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-2">
-            <div className="mr-1">
-              <BranchSelector />
-            </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+
+          {/* Mobile: Branch selector + tombol hamburger */}
+          <div className="md:hidden flex items-center gap-1.5">
+            <BranchSelector />
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label={isMenuOpen ? 'Tutup menu' : 'Buka menu'}
+              aria-expanded={isMenuOpen}
             >
-              <Menu className="h-6 w-6" />
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
           </div>
         </div>
-        
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden pt-4 pb-3 border-t mt-2 animate-fade-in">
-            <div className="flex flex-col space-y-3">
-              <div className="px-3 py-2 border-b border-gray-100">
-                <p className="text-xs text-gray-500 mb-2">Cabang aktif:</p>
-                <BranchSelector />
-              </div>
-              
-              <Link to="/" className="px-3 py-2 rounded-md hover:bg-gray-100">Beranda</Link>
-              <Link to="/services" className="px-3 py-2 rounded-md hover:bg-gray-100">Layanan</Link>
-              {/* <Link to="/contact" className="px-3 py-2 rounded-md hover:bg-gray-100">Kontak</Link> */}
-              
-              <div className="pt-2 border-t">
-                {isLoggedIn ? (
-                  <div className="flex flex-col space-y-3">
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleProfileClick();
-                      }}
-                      className="px-3 py-2 rounded-md hover:bg-gray-100 flex items-center w-full text-left"
-                    >
-                      {isAdmin ? <Shield className="h-4 w-4 mr-2" /> : <User className="h-4 w-4 mr-2" />}
-                      {isAdmin ? `Admin: ${userName}` : `Profile: ${userName}`}
-                    </button>
-                    
-                    {/* 🔥 Tombol "Pesan Janji" hanya untuk customer (bukan admin) */}
-                    {!isAdmin && (
-                      <Link to="/booking" onClick={() => setIsMenuOpen(false)}>
-                        <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
-                          Pesan Janji
-                        </Button>
-                      </Link>
-                    )}
-                    
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleLogout();
-                      }}
-                      className="px-3 py-2 rounded-md hover:bg-red-50 flex items-center w-full text-left text-red-600"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col space-y-3">
-                    <Link to="/login">
-                      <Button variant="outline" className="w-full">Login</Button>
-                    </Link>
-                    <Link to="/booking">
-                      <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
-                        Pesan Janji
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
+      </div>
+
+      {/* Overlay gelap di belakang drawer, tap untuk menutup */}
+      <div
+        onClick={closeMenu}
+        aria-hidden="true"
+        className={`md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${
+          isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      />
+
+      {/* Drawer menu mobile - slide in dari kanan */}
+      <div
+        className={`md:hidden fixed top-0 right-0 h-full w-[82%] max-w-xs bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+          isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-center justify-between px-4 py-4 border-b">
+          <span className="font-serif font-bold text-barber-brown text-lg">Menu</span>
+          <button
+            onClick={closeMenu}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+            aria-label="Tutup menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
+          <div className="px-1 py-2 mb-2 border-b border-gray-100">
+            <p className="text-xs text-gray-500 mb-2">Cabang aktif:</p>
+            <BranchSelector />
           </div>
-        )}
+
+          <Link
+            to="/"
+            onClick={closeMenu}
+            className="px-3 py-3 rounded-md hover:bg-gray-100 font-medium"
+          >
+            Beranda
+          </Link>
+          <Link
+            to="/services"
+            onClick={closeMenu}
+            className="px-3 py-3 rounded-md hover:bg-gray-100 font-medium"
+          >
+            Layanan
+          </Link>
+          {/* <Link to="/contact" onClick={closeMenu} className="px-3 py-3 rounded-md hover:bg-gray-100 font-medium">Kontak</Link> */}
+
+          <div className="pt-3 mt-2 border-t">
+            {isLoggedIn ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleProfileClick}
+                  className="px-3 py-3 rounded-md hover:bg-gray-100 flex items-center w-full text-left"
+                >
+                  {isAdmin ? <Shield className="h-4 w-4 mr-2" /> : <User className="h-4 w-4 mr-2" />}
+                  {isAdmin ? `Admin: ${userName}` : `Profile: ${userName}`}
+                </button>
+
+                {/* Tombol "Pesan Janji" hanya untuk customer (bukan admin) */}
+                {!isAdmin && (
+                  <Link to="/booking" onClick={closeMenu}>
+                    <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
+                      Pesan Janji
+                    </Button>
+                  </Link>
+                )}
+
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-3 rounded-md hover:bg-red-50 flex items-center w-full text-left text-red-600"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <Link to="/login" onClick={closeMenu}>
+                  <Button variant="outline" className="w-full">Login</Button>
+                </Link>
+                <Link to="/booking" onClick={closeMenu}>
+                  <Button className="w-full bg-barber-gold hover:bg-barber-gold/90 text-black">
+                    Pesan Janji
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </nav>
   );

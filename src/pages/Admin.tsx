@@ -1,4 +1,4 @@
-// src/pages/Admin.tsx - FULL CODE LENGKAP
+// src/pages/Admin.tsx - FULL CODE RESPONSIVE MOBILE
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,7 +22,8 @@ import {
   CreditCard, Wallet, Landmark, QrCode, TrendingUp, Clock, 
   CheckCircle2, XCircle, AlertCircle, FileText, FileSpreadsheet, 
   Download, Printer, LogOut, UserCircle, Save, XCircle as XCircleIcon,
-  Search, Filter, Upload, Image as ImageIcon, Banknote, Upload as UploadIcon
+  Search, Filter, Lock, Upload, Image as ImageIcon, Banknote, Upload as UploadIcon,
+  ChevronRight, ChevronDown
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -102,7 +103,7 @@ const Admin = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
-  // 🔥 FILTER PERIODE
+  // FILTER PERIODE
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>(
     String(new Date().getMonth() + 1).padStart(2, '0')
@@ -153,15 +154,14 @@ const Admin = () => {
   const [isQrChanged, setIsQrChanged] = useState(false);
 
   const resetQrState = () => {
-  setQrFile(null);
-  setQrPreview(null);
-  setIsQrChanged(false);
-  // Reset file input
-  const fileInput = document.getElementById('qr-upload') as HTMLInputElement;
-  if (fileInput) {
-    fileInput.value = '';
-  }
-};
+    setQrFile(null);
+    setQrPreview(null);
+    setIsQrChanged(false);
+    const fileInput = document.getElementById('qr-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
 
   // Revenue chart data
   const [revenueChartData, setRevenueChartData] = useState([
@@ -366,7 +366,6 @@ const Admin = () => {
   const getFilteredReservations = () => {
     let filtered = [...reservations];
     
-    // 🔥 FILTER PERIODE
     if (filterPeriod === 'today') {
       const today = new Date().toISOString().split('T')[0];
       filtered = filtered.filter(r => r.tanggal_reservasi === today);
@@ -391,7 +390,6 @@ const Admin = () => {
       }
     }
     
-    // 🔥 FILTER SEARCH
     if (searchTerm) {
       filtered = filtered.filter(r => 
         r.pelanggan_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -400,7 +398,6 @@ const Admin = () => {
       );
     }
     
-    // 🔥 FILTER STATUS
     if (statusFilter !== 'all') {
       filtered = filtered.filter(r => r.status === statusFilter);
     }
@@ -410,7 +407,6 @@ const Admin = () => {
 
   // ============ CRUD FUNCTIONS ============
   const handleUpdateProfile = async () => {
-    // 🔥 VALIDASI NAMA & EMAIL
     if (!editForm.nama || !editForm.nama.trim()) {
       toast({
         variant: "destructive",
@@ -429,7 +425,6 @@ const Admin = () => {
       return;
     }
 
-    // 🔥 VALIDASI FORMAT EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editForm.email)) {
       toast({
@@ -440,9 +435,7 @@ const Admin = () => {
       return;
     }
 
-    // 🔥 VALIDASI PASSWORD (jika ada yang diisi)
     if (editForm.new_password || editForm.new_password_confirmation || editForm.current_password) {
-      // Jika salah satu field password diisi, semua harus diisi
       if (!editForm.current_password) {
         toast({
           variant: "destructive",
@@ -492,13 +485,11 @@ const Admin = () => {
     setSavingProfile(true);
 
     try {
-      // 🔥 BUAT PAYLOAD
       const payload: any = {
         nama: editForm.nama.trim(),
         email: editForm.email.trim(),
       };
 
-      // 🔥 Jika ada password baru, kirim juga
       if (editForm.new_password) {
         payload.current_password = editForm.current_password;
         payload.new_password = editForm.new_password;
@@ -517,11 +508,8 @@ const Admin = () => {
           description: "Profil admin telah diperbarui",
         });
 
-        // 🔥 Update data admin
         if (response.data.admin) {
           setAdminData(response.data.admin);
-          
-          // 🔥 Update editForm dengan data baru (reset password fields)
           setEditForm({
             nama: response.data.admin.nama || '',
             email: response.data.admin.email || '',
@@ -734,9 +722,8 @@ const Admin = () => {
       return;
     }
     
-    // 🔥 Set file dan preview
     setQrFile(file);
-    setIsQrChanged(true); // 🔥 Tandai bahwa QR berubah
+    setIsQrChanged(true);
     
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -757,13 +744,11 @@ const Admin = () => {
       const formData = new FormData();
       formData.append('cabang_id', selectedCabangForPayment);
       
-      // 🔥 Kirim data bank (termasuk yang kosong)
       formData.append('bank_bca', paymentSettings.bank_bca || '');
       formData.append('bank_mandiri', paymentSettings.bank_mandiri || '');
       formData.append('bank_bni', paymentSettings.bank_bni || '');
       formData.append('bank_bri', paymentSettings.bank_bri || '');
       
-      // 🔥 Upload QR Code hanya jika ada file baru
       if (qrFile) {
         console.log('Uploading new QR Code:', qrFile.name, qrFile.size);
         formData.append('qr_code', qrFile);
@@ -771,7 +756,6 @@ const Admin = () => {
         console.log('No new QR file, keeping existing');
       }
       
-      // 🔥 Debug log
       console.log('Saving payment settings:');
       console.log('- Cabang:', selectedCabangForPayment);
       console.log('- Bank BCA:', paymentSettings.bank_bca);
@@ -793,13 +777,9 @@ const Admin = () => {
           description: "Pengaturan pembayaran berhasil disimpan" 
         });
         
-        // 🔥 Refresh data
         await fetchPaymentSettings();
-        
-        // 🔥 Reset QR state setelah sukses
         resetQrState();
         
-        // 🔥 Tampilkan QR code yang baru diupload
         if (response.data.data && response.data.data.qr_code) {
           setPaymentSettings(prev => ({
             ...prev,
@@ -835,6 +815,56 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteQr = async () => {
+    if (!window.confirm('Yakin ingin menghapus QR Code? Ini akan menghapus QR Code dari database dan server.')) {
+      return;
+    }
+
+    setSavingPayment(true);
+
+    try {
+      const response = await axiosInstance.delete('/payment-settings/qr', {
+        params: { cabang_id: selectedCabangForPayment }
+      });
+
+      console.log('Delete QR response:', response.data);
+
+      if (response.data.success) {
+        toast({
+          title: "Berhasil!",
+          description: "QR Code berhasil dihapus",
+        });
+
+        setPaymentSettings(prev => ({ ...prev, qr_code: null }));
+        setQrPreview(null);
+        setQrFile(null);
+        setIsQrChanged(false);
+        
+        const fileInput = document.getElementById('qr-upload') as HTMLInputElement;
+        if (fileInput) {
+          fileInput.value = '';
+        }
+        
+        await fetchPaymentSettings();
+      }
+    } catch (error: any) {
+      console.error('Error deleting QR:', error);
+      
+      let errorMessage = 'Terjadi kesalahan saat menghapus QR Code';
+      if (error.response) {
+        errorMessage = error.response.data?.message || 'Server error';
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Gagal",
+        description: errorMessage,
+      });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   // ============ EXPORT FUNCTIONS ============
   const exportToPDF = () => {
     const filteredData = getFilteredReservations();
@@ -851,7 +881,6 @@ const Admin = () => {
     try {
       const doc = new jsPDF('landscape');
       
-      // Header
       doc.setFontSize(20);
       doc.setTextColor(245, 158, 11);
       doc.text('Laporan Transaksi Reservasi', 14, 20);
@@ -859,7 +888,6 @@ const Admin = () => {
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       
-      // Info filter
       let periodText = 'Semua Data';
       if (filterPeriod === 'today') periodText = 'Hari Ini';
       else if (filterPeriod === 'this_month') periodText = `Bulan ${getMonthName(parseInt(filterMonth))} ${filterYear}`;
@@ -878,7 +906,6 @@ const Admin = () => {
       
       doc.text(`Total Pendapatan: Rp ${totalAmount.toLocaleString('id-ID')}`, 14, 56);
       
-      // Table
       autoTable(doc, {
         startY: 65,
         head: [['Kode', 'Pelanggan', 'Layanan', 'Cabang', 'Tanggal', 'Waktu', 'Metode', 'Total', 'Status']],
@@ -980,7 +1007,6 @@ const Admin = () => {
         { wch: 18 }  // Status
       ];
       
-      // Format currency di Excel
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
       for (let row = range.s.r; row <= range.e.r; row++) {
         const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 });
@@ -1081,116 +1107,141 @@ const Admin = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <div className="mb-8 flex justify-between items-center">
+      <div className="min-h-screen bg-gray-50 py-4 md:py-8">
+        <div className="container mx-auto px-3 md:px-4">
+          {/* Header - Responsive */}
+          <div className="mb-4 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Admin</h1>
-              <p className="text-gray-600">Selamat datang, {adminData?.nama}</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Dashboard Admin</h1>
+              <p className="text-sm text-gray-600 hidden sm:block">Selamat datang, {adminData?.nama}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-gray-500">Cabang:</span>
-                <span className="text-sm font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                <span className="text-xs md:text-sm text-gray-500">Cabang:</span>
+                <span className="text-xs md:text-sm font-semibold text-amber-600 bg-amber-50 px-2 md:px-3 py-0.5 md:py-1 rounded-full border border-amber-200">
                   {currentBranch?.name || 'Semua Cabang'}
                 </span>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={() => setShowEditProfileDialog(true)}
-                className="border-amber-600 text-amber-600 hover:bg-amber-50"
+                className="border-amber-600 text-amber-600 hover:bg-amber-50 flex-1 sm:flex-none text-xs md:text-sm"
               >
-                <UserCircle className="h-4 w-4 mr-2" />
-                Edit Profil
+                <UserCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                <span className="hidden sm:inline">Edit Profil</span>
+                <span className="sm:hidden">Profil</span>
               </Button>
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={handleAdminLogout}
-                className="text-red-600 border-red-600 hover:bg-red-50"
+                className="text-red-600 border-red-600 hover:bg-red-50 flex-1 sm:flex-none text-xs md:text-sm"
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+                <LogOut className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">Keluar</span>
               </Button>
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="appointments">Reservasi</TabsTrigger>
-              <TabsTrigger value="services">Layanan</TabsTrigger>
-              <TabsTrigger value="customers">Pelanggan</TabsTrigger>
-              <TabsTrigger value="reports">Laporan</TabsTrigger>
-              <TabsTrigger value="payments">Pembayaran</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+            {/* Tabs - Scrollable di mobile */}
+            <TabsList className="flex w-full overflow-x-auto gap-1 bg-gray-100 p-1 rounded-lg md:grid md:grid-cols-6">
+              <TabsTrigger value="dashboard" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Dashboard</span>
+                <span className="sm:hidden">📊</span>
+              </TabsTrigger>
+              <TabsTrigger value="appointments" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Reservasi</span>
+                <span className="sm:hidden">📋</span>
+              </TabsTrigger>
+              <TabsTrigger value="services" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Layanan</span>
+                <span className="sm:hidden">✂️</span>
+              </TabsTrigger>
+              <TabsTrigger value="customers" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Pelanggan</span>
+                <span className="sm:hidden">👤</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Laporan</span>
+                <span className="sm:hidden">📄</span>
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md">
+                <span className="hidden sm:inline">Pembayaran</span>
+                <span className="sm:hidden">💳</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* DASHBOARD TAB */}
-            <TabsContent value="dashboard" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Reservasi</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
+            <TabsContent value="dashboard" className="space-y-4 md:space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-6">
+                <Card className="p-3 md:p-6">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                    <CardTitle className="text-xs md:text-sm font-medium">Total Reservasi</CardTitle>
+                    <Calendar className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{dashboardStats.totalReservations}</div>
-                    <p className="text-xs text-muted-foreground">Total semua reservasi</p>
+                  <CardContent className="p-0 pt-1">
+                    <div className="text-xl md:text-2xl font-bold">{dashboardStats.totalReservations}</div>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">Total semua reservasi</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Reservasi Hari Ini</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-3 md:p-6">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                    <CardTitle className="text-xs md:text-sm font-medium">Reservasi Hari Ini</CardTitle>
+                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{dashboardStats.todayReservations}</div>
-                    <p className="text-xs text-muted-foreground">Dijadwalkan hari ini</p>
+                  <CardContent className="p-0 pt-1">
+                    <div className="text-xl md:text-2xl font-bold">{dashboardStats.todayReservations}</div>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">Dijadwalkan hari ini</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Pelanggan</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-3 md:p-6">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                    <CardTitle className="text-xs md:text-sm font-medium">Total Pelanggan</CardTitle>
+                    <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{dashboardStats.totalCustomers}</div>
-                    <p className="text-xs text-muted-foreground">Pelanggan terdaftar</p>
+                  <CardContent className="p-0 pt-1">
+                    <div className="text-xl md:text-2xl font-bold">{dashboardStats.totalCustomers}</div>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">Pelanggan terdaftar</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pendapatan Bulanan</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-3 md:p-6">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                    <CardTitle className="text-xs md:text-sm font-medium">Pendapatan Bulanan</CardTitle>
+                    <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatRupiah(dashboardStats.monthlyRevenue)}</div>
-                    <p className="text-xs text-green-600">↑ {dashboardStats.revenueGrowth}% dari bulan lalu</p>
+                  <CardContent className="p-0 pt-1">
+                    <div className="text-base md:text-2xl font-bold">{formatRupiah(dashboardStats.monthlyRevenue)}</div>
+                    <p className="text-[10px] md:text-xs text-green-600">↑ {dashboardStats.revenueGrowth}% dari bulan lalu</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Tren Pendapatan</CardTitle>
-                    <CardDescription>Pendapatan 6 bulan terakhir</CardDescription>
+                    <CardTitle className="text-base md:text-lg">Tren Pendapatan</CardTitle>
+                    <CardDescription className="text-xs md:text-sm">Pendapatan 6 bulan terakhir</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px]">
+                    <div className="h-[250px] md:h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueChartData}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
+                          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                           <YAxis 
                             tickFormatter={(value) => `Rp${(value / 1000).toFixed(0)}K`}
-                            width={70}
+                            width={60}
                             domain={[0, 'dataMax + dataMax * 0.1']}
+                            tick={{ fontSize: 10 }}
                           />
                           <Tooltip 
                             formatter={(value) => formatRupiah(Number(value))}
+                            contentStyle={{ fontSize: '12px' }}
                           />
-                          <Legend />
+                          <Legend wrapperStyle={{ fontSize: '12px' }} />
                           <Line 
                             type="monotone" 
                             dataKey="revenue" 
@@ -1206,11 +1257,11 @@ const Admin = () => {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Distribusi Metode Pembayaran</CardTitle>
-                    <CardDescription>Berdasarkan total transaksi</CardDescription>
+                    <CardTitle className="text-base md:text-lg">Distribusi Metode Pembayaran</CardTitle>
+                    <CardDescription className="text-xs md:text-sm">Berdasarkan total transaksi</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px]">
+                    <div className="h-[250px] md:h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -1219,7 +1270,7 @@ const Admin = () => {
                             cy="50%"
                             labelLine={false}
                             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={80}
+                            outerRadius={70}
                             fill="#8884d8"
                             dataKey="value"
                           >
@@ -1227,7 +1278,7 @@ const Admin = () => {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip />
+                          <Tooltip contentStyle={{ fontSize: '12px' }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -1236,27 +1287,27 @@ const Admin = () => {
               </div>
             </TabsContent>
 
-            {/* RESERVATIONS TAB */}
-            <TabsContent value="appointments" className="space-y-6">
+            {/* RESERVATIONS TAB - Responsive Mobile */}
+            <TabsContent value="appointments" className="space-y-4 md:space-y-6">
               <Card>
-                <CardHeader>
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <CardHeader className="p-4 md:p-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
-                      <CardTitle>Manajemen Reservasi</CardTitle>
-                      <CardDescription>Lihat dan kelola semua reservasi</CardDescription>
+                      <CardTitle className="text-base md:text-lg">Manajemen Reservasi</CardTitle>
+                      <CardDescription className="text-xs md:text-sm">Lihat dan kelola semua reservasi</CardDescription>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <div className="relative w-64">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                      <div className="relative flex-1 md:w-64">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
                         <Input 
-                          placeholder="Cari pelanggan/layanan..." 
-                          className="pl-9"
+                          placeholder="Cari..." 
+                          className="pl-9 text-xs md:text-sm h-9 md:h-10"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
                       </div>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-32 md:w-40 h-9 md:h-10 text-xs md:text-sm">
                           <SelectValue placeholder="Filter Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1270,8 +1321,71 @@ const Admin = () => {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
+                <CardContent className="p-3 md:p-6 pt-0">
+                  {/* 🔥 MOBILE VERSION - Card List */}
+                  <div className="block md:hidden space-y-3">
+                    {getFilteredReservations().map((reservation) => (
+                      <Card key={reservation.id_reservasi} className="p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Kode</p>
+                              <p className="font-mono text-xs font-bold">{reservation.kode_reservasi}</p>
+                            </div>
+                            <div>{getStatusBadge(reservation.status)}</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 text-xs">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Pelanggan</p>
+                              <p className="font-medium">{reservation.pelanggan_nama || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Layanan</p>
+                              <p className="font-medium">{reservation.layanan_nama}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Tanggal</p>
+                              <p className="font-medium">{formatDate(reservation.tanggal_reservasi)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Total</p>
+                              <p className="font-bold text-amber-600">{formatRupiah(reservation.total_harga)}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-2 border-t">
+                            {reservation.bukti_pembayaran && (
+                              <img 
+                                src={getBuktiUrl(reservation.bukti_pembayaran)} 
+                                alt="Bukti"
+                                className="w-10 h-10 object-cover rounded border cursor-pointer"
+                                onClick={() => {
+                                  const url = getBuktiUrl(reservation.bukti_pembayaran);
+                                  if (url) window.open(url, '_blank');
+                                }}
+                              />
+                            )}
+                            <Select
+                              value={reservation.status}
+                              onValueChange={(value) => handleUpdateReservationStatus(reservation.id_reservasi, value)}
+                            >
+                              <SelectTrigger className="w-28 h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Menunggu</SelectItem>
+                                <SelectItem value="dikonfirmasi">Dikonfirmasi</SelectItem>
+                                <SelectItem value="selesai">Selesai</SelectItem>
+                                <SelectItem value="dibatalkan">Dibatalkan</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* 🔥 DESKTOP VERSION - Table */}
+                  <div className="hidden md:block overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1349,23 +1463,65 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
-            {/* SERVICES TAB */}
-            <TabsContent value="services" className="space-y-6">
+            {/* SERVICES TAB - Responsive Mobile */}
+            <TabsContent value="services" className="space-y-4 md:space-y-6">
               <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
+                <CardHeader className="p-4 md:p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
-                      <CardTitle>Manajemen Layanan</CardTitle>
-                      <CardDescription>Kelola layanan yang tersedia (Tambah, Edit, Hapus)</CardDescription>
+                      <CardTitle className="text-base md:text-lg">Manajemen Layanan</CardTitle>
+                      <CardDescription className="text-xs md:text-sm">Kelola layanan yang tersedia</CardDescription>
                     </div>
-                    <Button onClick={handleAddService} className="bg-amber-600 hover:bg-amber-700">
+                    <Button onClick={handleAddService} className="bg-amber-600 hover:bg-amber-700 text-sm w-full sm:w-auto">
                       <Plus className="h-4 w-4 mr-2" />
                       Tambah Layanan
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
+                <CardContent className="p-3 md:p-6 pt-0">
+                  {/* 🔥 MOBILE VERSION - Card List */}
+                  <div className="block md:hidden space-y-3">
+                    {services.map((service) => (
+                      <Card key={service.id_layanan} className="p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-start gap-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                            {service.gambar ? (
+                              <img 
+                                src={getImageUrl(service.gambar)} 
+                                alt={service.nama_layanan}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ImageIcon className="h-6 w-6 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="font-medium text-sm truncate">{service.nama_layanan}</p>
+                              <Badge className={service.status === 'aktif' ? 'bg-green-500' : 'bg-red-500'}>
+                                {service.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-gray-500">{service.kode_layanan}</p>
+                            <p className="text-xs font-bold text-amber-600">{formatRupiah(service.harga)}</p>
+                            <div className="flex gap-2 mt-2">
+                              <Button variant="outline" size="sm" className="text-xs" onClick={() => handleEditService(service)}>
+                                <Edit className="h-3 w-3 mr-1" /> Edit
+                              </Button>
+                              <Button variant="outline" size="sm" className="text-xs text-red-500" onClick={() => handleDeleteService(service.id_layanan, service.nama_layanan)}>
+                                <Trash2 className="h-3 w-3 mr-1" /> Hapus
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* 🔥 DESKTOP VERSION - Table */}
+                  <div className="hidden md:block overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1407,19 +1563,10 @@ const Admin = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => handleEditService(service)}
-                                >
+                                <Button variant="outline" size="sm" onClick={() => handleEditService(service)}>
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => handleDeleteService(service.id_layanan, service.nama_layanan)}
-                                  disabled={deletingServiceId === service.id_layanan}
-                                >
+                                <Button variant="outline" size="sm" onClick={() => handleDeleteService(service.id_layanan, service.nama_layanan)}>
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
                               </div>
@@ -1430,27 +1577,27 @@ const Admin = () => {
                     </Table>
                   </div>
                   {services.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Tidak ada data layanan. Klik "Tambah Layanan" untuk menambahkan.</div>
+                    <div className="text-center py-8 text-gray-500">Tidak ada data layanan.</div>
                   )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* REPORTS TAB */}
-            <TabsContent value="reports" className="space-y-6">
+            {/* REPORTS TAB - Responsive Mobile */}
+            <TabsContent value="reports" className="space-y-4 md:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Export Laporan Reservasi</CardTitle>
-                  <CardDescription>Export data reservasi dengan filter periode</CardDescription>
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-base md:text-lg">Export Laporan Reservasi</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">Export data reservasi dengan filter periode</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col gap-6">
-                    {/* Filter Periode */}
-                    <div className="flex flex-wrap items-end gap-4">
-                      <div className="w-48">
-                        <Label>Periode</Label>
+                <CardContent className="p-3 md:p-6 pt-0">
+                  <div className="flex flex-col gap-4 md:gap-6">
+                    {/* Filter - Stack di mobile */}
+                    <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-3">
+                      <div className="w-full sm:w-48">
+                        <Label className="text-xs md:text-sm">Periode</Label>
                         <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                          <SelectTrigger>
+                          <SelectTrigger className="text-xs md:text-sm h-9 md:h-10">
                             <SelectValue placeholder="Pilih Periode" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1464,10 +1611,10 @@ const Admin = () => {
 
                       {(filterPeriod === 'custom' || filterPeriod === 'this_month') && (
                         <>
-                          <div className="w-40">
-                            <Label>Bulan</Label>
+                          <div className="w-full sm:w-36">
+                            <Label className="text-xs md:text-sm">Bulan</Label>
                             <Select value={filterMonth} onValueChange={setFilterMonth}>
-                              <SelectTrigger>
+                              <SelectTrigger className="text-xs md:text-sm h-9 md:h-10">
                                 <SelectValue placeholder="Bulan" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1487,10 +1634,10 @@ const Admin = () => {
                             </Select>
                           </div>
 
-                          <div className="w-40">
-                            <Label>Tahun</Label>
+                          <div className="w-full sm:w-36">
+                            <Label className="text-xs md:text-sm">Tahun</Label>
                             <Select value={filterYear} onValueChange={setFilterYear}>
-                              <SelectTrigger>
+                              <SelectTrigger className="text-xs md:text-sm h-9 md:h-10">
                                 <SelectValue placeholder="Tahun" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1510,51 +1657,53 @@ const Admin = () => {
 
                       {filterPeriod === 'custom' && (
                         <>
-                          <div className="flex-1">
-                            <Label>Tanggal Mulai</Label>
+                          <div className="w-full sm:flex-1">
+                            <Label className="text-xs md:text-sm">Tanggal Mulai</Label>
                             <Input
                               type="date"
                               value={dateRange.start}
                               onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                              className="text-xs md:text-sm h-9 md:h-10"
                             />
                           </div>
-                          <div className="flex-1">
-                            <Label>Tanggal Akhir</Label>
+                          <div className="w-full sm:flex-1">
+                            <Label className="text-xs md:text-sm">Tanggal Akhir</Label>
                             <Input
                               type="date"
                               value={dateRange.end}
                               onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                              className="text-xs md:text-sm h-9 md:h-10"
                             />
                           </div>
                         </>
                       )}
 
-                      <div className="w-48">
-                        <Label>Format Export</Label>
+                      <div className="w-full sm:w-40">
+                        <Label className="text-xs md:text-sm">Format Export</Label>
                         <Select value={exportFormat} onValueChange={setExportFormat}>
-                          <SelectTrigger>
+                          <SelectTrigger className="text-xs md:text-sm h-9 md:h-10">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pdf">PDF Document</SelectItem>
-                            <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                            <SelectItem value="pdf">PDF</SelectItem>
+                            <SelectItem value="excel">Excel</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <Button 
                         onClick={exportFormat === 'pdf' ? exportToPDF : exportToExcel} 
-                        className="bg-amber-600 hover:bg-amber-700"
+                        className="bg-amber-600 hover:bg-amber-700 w-full sm:w-auto text-sm"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Export Laporan
+                        Export
                       </Button>
                     </div>
 
                     {/* Info Filter Aktif */}
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-sm font-medium text-gray-600">Filter aktif:</span>
-                      <Badge variant="outline" className="bg-blue-50">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-xs font-medium text-gray-600">Filter aktif:</span>
+                      <Badge variant="outline" className="bg-blue-50 text-xs">
                         {filterPeriod === 'all' && 'Semua Data'}
                         {filterPeriod === 'today' && 'Hari Ini'}
                         {filterPeriod === 'this_month' && `Bulan ${getMonthName(parseInt(filterMonth))} ${filterYear}`}
@@ -1562,44 +1711,59 @@ const Admin = () => {
                           ? `${formatDateLocal(dateRange.start)} - ${formatDateLocal(dateRange.end)}`
                           : 'Kustom'}
                       </Badge>
-                      <Badge variant="outline" className="bg-gray-50">
-                        Total Data: {getFilteredReservations().length} transaksi
+                      <Badge variant="outline" className="bg-gray-50 text-xs">
+                        Total: {getFilteredReservations().length} transaksi
                       </Badge>
                     </div>
                     
-                    {/* Preview Data */}
-                    <div className="mt-6">
-                      <h3 className="font-semibold mb-3">Preview Data</h3>
-                      <div className="overflow-x-auto">
+                    {/* Preview Data - Responsive */}
+                    <div className="mt-2">
+                      <h3 className="font-semibold text-sm mb-2">Preview Data</h3>
+                      <div className="hidden sm:block overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Kode</TableHead>
-                              <TableHead>Pelanggan</TableHead>
-                              <TableHead>Layanan</TableHead>
-                              <TableHead>Tanggal</TableHead>
-                              <TableHead>Waktu</TableHead>
-                              <TableHead>Total</TableHead>
-                              <TableHead>Status</TableHead>
+                              <TableHead className="text-xs">Kode</TableHead>
+                              <TableHead className="text-xs">Pelanggan</TableHead>
+                              <TableHead className="text-xs">Layanan</TableHead>
+                              <TableHead className="text-xs">Tanggal</TableHead>
+                              <TableHead className="text-xs">Waktu</TableHead>
+                              <TableHead className="text-xs">Total</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {getFilteredReservations().slice(0, 5).map((reservation) => (
                               <TableRow key={reservation.id_reservasi}>
-                                <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
-                                <TableCell>{reservation.pelanggan_nama || '-'}</TableCell>
-                                <TableCell>{reservation.layanan_nama}</TableCell>
-                                <TableCell>{formatDate(reservation.tanggal_reservasi)}</TableCell>
-                                <TableCell>{reservation.waktu || '-'}</TableCell> 
-                                <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
-                                <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                                <TableCell className="font-mono text-xs">{reservation.kode_reservasi}</TableCell>
+                                <TableCell className="text-xs">{reservation.pelanggan_nama || '-'}</TableCell>
+                                <TableCell className="text-xs">{reservation.layanan_nama}</TableCell>
+                                <TableCell className="text-xs">{formatDate(reservation.tanggal_reservasi)}</TableCell>
+                                <TableCell className="text-xs">{reservation.waktu || '-'}</TableCell>
+                                <TableCell className="text-xs">{formatRupiah(reservation.total_harga)}</TableCell>
+                                <TableCell className="text-xs">{getStatusBadge(reservation.status)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
                       </div>
+                      {/* Mobile preview - Card */}
+                      <div className="block sm:hidden space-y-2">
+                        {getFilteredReservations().slice(0, 3).map((reservation) => (
+                          <div key={reservation.id_reservasi} className="bg-gray-50 p-3 rounded-lg text-xs">
+                            <div className="flex justify-between">
+                              <span className="font-mono font-bold">{reservation.kode_reservasi}</span>
+                              {getStatusBadge(reservation.status)}
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 mt-1">
+                              <span className="text-gray-500">{reservation.pelanggan_nama}</span>
+                              <span className="text-right">{formatRupiah(reservation.total_harga)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                       {getFilteredReservations().length === 0 && (
-                        <p className="text-center text-gray-500 py-4">Tidak ada data</p>
+                        <p className="text-center text-gray-500 py-4 text-sm">Tidak ada data</p>
                       )}
                     </div>
                   </div>
@@ -1607,35 +1771,48 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
-            {/* CUSTOMERS TAB */}
-            <TabsContent value="customers" className="space-y-6">
+            {/* CUSTOMERS TAB - Responsive Mobile */}
+            <TabsContent value="customers" className="space-y-4 md:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Manajemen Pelanggan</CardTitle>
-                  <CardDescription>Lihat semua pelanggan terdaftar</CardDescription>
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-base md:text-lg">Manajemen Pelanggan</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">Lihat semua pelanggan terdaftar</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
+                <CardContent className="p-3 md:p-6 pt-0">
+                  {/* 🔥 MOBILE VERSION - Card List */}
+                  <div className="block md:hidden space-y-3">
+                    {customers.map((customer) => (
+                      <Card key={customer.id_pelanggan} className="p-4 shadow-sm">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm">{customer.nama}</p>
+                          <p className="text-xs text-gray-500">{customer.email}</p>
+                          <p className="text-xs text-gray-500">📱 {customer.no_hp || '-'}</p>
+                          {customer.alamat && (
+                            <p className="text-xs text-gray-400 truncate">{customer.alamat}</p>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* 🔥 DESKTOP VERSION - Table */}
+                  <div className="hidden md:block overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>ID</TableHead>
                           <TableHead>Nama</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>No HP</TableHead>
                           <TableHead>Alamat</TableHead>
-                          <TableHead>Terdaftar</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {customers.map((customer) => (
                           <TableRow key={customer.id_pelanggan}>
-                            <TableCell>{customer.id_pelanggan}</TableCell>
                             <TableCell className="font-medium">{customer.nama}</TableCell>
                             <TableCell>{customer.email}</TableCell>
                             <TableCell>{customer.no_hp || '-'}</TableCell>
                             <TableCell className="max-w-xs truncate">{customer.alamat || '-'}</TableCell>
-                            <TableCell>{formatDate(customer.created_at)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1648,18 +1825,18 @@ const Admin = () => {
               </Card>
             </TabsContent>
 
-            {/* PAYMENT SETTINGS TAB */}
-            <TabsContent value="payments" className="space-y-6">
+            {/* PAYMENT SETTINGS TAB - Responsive Mobile */}
+            <TabsContent value="payments" className="space-y-4 md:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Pengaturan Pembayaran</CardTitle>
-                  <CardDescription>Kelola rekening bank dan QR code untuk pembayaran</CardDescription>
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-base md:text-lg">Pengaturan Pembayaran</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">Kelola rekening bank dan QR code</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4 md:space-y-6 p-3 md:p-6 pt-0">
                   <div className="space-y-2">
-                    <Label>Pilih Cabang</Label>
+                    <Label className="text-xs md:text-sm">Pilih Cabang</Label>
                     <Select value={selectedCabangForPayment} onValueChange={setSelectedCabangForPayment}>
-                      <SelectTrigger className="w-64">
+                      <SelectTrigger className="w-full md:w-64 h-9 md:h-10 text-sm">
                         <SelectValue placeholder="Pilih cabang" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1669,46 +1846,47 @@ const Admin = () => {
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 border-b pb-2">
                         <Banknote className="h-5 w-5 text-blue-600" />
-                        <h3 className="font-semibold">Rekening Bank</h3>
+                        <h3 className="font-semibold text-sm md:text-base">Rekening Bank</h3>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label>BCA</Label>
+                        <Label className="text-xs md:text-sm">BCA</Label>
                         <Input
                           placeholder="Nomor Rekening BCA"
                           value={paymentSettings.bank_bca}
                           onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bca: e.target.value })}
+                          className="text-sm h-9 md:h-10"
                         />
                       </div>
-                      
                       <div className="space-y-2">
-                        <Label>Mandiri</Label>
+                        <Label className="text-xs md:text-sm">Mandiri</Label>
                         <Input
                           placeholder="Nomor Rekening Mandiri"
                           value={paymentSettings.bank_mandiri}
                           onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_mandiri: e.target.value })}
+                          className="text-sm h-9 md:h-10"
                         />
                       </div>
-                      
                       <div className="space-y-2">
-                        <Label>BNI</Label>
+                        <Label className="text-xs md:text-sm">BNI</Label>
                         <Input
                           placeholder="Nomor Rekening BNI"
                           value={paymentSettings.bank_bni}
                           onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bni: e.target.value })}
+                          className="text-sm h-9 md:h-10"
                         />
                       </div>
-                      
                       <div className="space-y-2">
-                        <Label>BRI</Label>
+                        <Label className="text-xs md:text-sm">BRI</Label>
                         <Input
                           placeholder="Nomor Rekening BRI"
                           value={paymentSettings.bank_bri}
                           onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_bri: e.target.value })}
+                          className="text-sm h-9 md:h-10"
                         />
                       </div>
                     </div>
@@ -1716,34 +1894,27 @@ const Admin = () => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 border-b pb-2">
                         <QrCode className="h-5 w-5 text-orange-600" />
-                        <h3 className="font-semibold">QRIS Code</h3>
+                        <h3 className="font-semibold text-sm md:text-base">QRIS Code</h3>
                       </div>
                       
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        {/* 🔥 Tampilkan preview (dari upload baru atau dari server) */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 md:p-4 text-center">
                         {(qrPreview || getQrImageUrl(paymentSettings.qr_code)) ? (
                           <div className="space-y-3">
                             <img 
                               src={qrPreview || getQrImageUrl(paymentSettings.qr_code)} 
                               alt="QR Code"
-                              className="w-48 h-48 object-contain mx-auto border rounded-lg bg-white p-2"
+                              className="w-32 h-32 md:w-48 md:h-48 object-contain mx-auto border rounded-lg bg-white p-2"
                             />
                             {qrPreview && (
-                              <p className="text-xs text-green-600">
-                                ✓ QR Code baru siap diupload
-                              </p>
+                              <p className="text-xs text-green-600">✓ QR Code baru siap diupload</p>
                             )}
-                            <div className="flex justify-center gap-2 flex-wrap">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={resetQrState}
-                              >
+                            <div className="flex flex-wrap justify-center gap-2">
+                              <Button variant="outline" size="sm" onClick={handleDeleteQr} disabled={savingPayment}>
                                 Hapus
                               </Button>
                               <label className="cursor-pointer">
                                 <Button variant="outline" size="sm" asChild>
-                                  <span>Ganti QR Code</span>
+                                  <span>Ganti QR</span>
                                 </Button>
                                 <input
                                   id="qr-upload"
@@ -1756,10 +1927,10 @@ const Admin = () => {
                             </div>
                           </div>
                         ) : (
-                          <label className="cursor-pointer flex flex-col items-center justify-center py-8">
-                            <UploadIcon className="h-12 w-12 text-gray-400 mb-2" />
-                            <span className="text-sm text-gray-500">Klik untuk upload QR Code</span>
-                            <span className="text-xs text-gray-400">Format: JPG, PNG, WEBP (Max 2MB)</span>
+                          <label className="cursor-pointer flex flex-col items-center justify-center py-6 md:py-8">
+                            <UploadIcon className="h-10 w-10 md:h-12 md:w-12 text-gray-400 mb-2" />
+                            <span className="text-xs md:text-sm text-gray-500">Klik untuk upload QR Code</span>
+                            <span className="text-[10px] md:text-xs text-gray-400">Format: JPG, PNG, WEBP (Max 2MB)</span>
                             <input
                               id="qr-upload"
                               type="file"
@@ -1770,7 +1941,6 @@ const Admin = () => {
                           </label>
                         )}
                         
-                        {/* 🔥 Informasi file yang akan diupload */}
                         {qrFile && (
                           <div className="mt-3 p-2 bg-blue-50 rounded text-left">
                             <p className="text-xs text-blue-700">
@@ -1782,10 +1952,9 @@ const Admin = () => {
                           </div>
                         )}
                         
-                        {/* 🔥 Tampilkan QR Code lama jika ada */}
                         {paymentSettings.qr_code && !qrPreview && !qrFile && (
                           <p className="text-xs text-gray-500 mt-2">
-                            QR Code saat ini (klik "Ganti QR Code" untuk mengubah)
+                            QR Code saat ini (klik "Ganti QR" untuk mengubah)
                           </p>
                         )}
                       </div>
@@ -1795,7 +1964,7 @@ const Admin = () => {
                   <Button 
                     onClick={handleSavePaymentSettings} 
                     disabled={savingPayment}
-                    className="bg-amber-600 hover:bg-amber-700"
+                    className="bg-amber-600 hover:bg-amber-700 w-full md:w-auto"
                   >
                     {savingPayment ? 'Menyimpan...' : 'Simpan Pengaturan'}
                   </Button>
@@ -1809,7 +1978,6 @@ const Admin = () => {
       {/* Edit Profile Dialog */}
       <Dialog open={showEditProfileDialog} onOpenChange={(open) => {
         if (!open) {
-          // 🔥 Reset form saat dialog ditutup tanpa menyimpan
           setEditForm({
             ...editForm,
             current_password: '',
@@ -1819,7 +1987,7 @@ const Admin = () => {
         }
         setShowEditProfileDialog(open);
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Edit Profil Admin</DialogTitle>
             <DialogDescription>
@@ -1827,93 +1995,99 @@ const Admin = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            {/* 🔥 NAMA */}
-            <div className="space-y-2">
-              <Label htmlFor="admin-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
-              <Input
-                id="admin-nama"
-                value={editForm.nama}
-                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
-                placeholder="Masukkan nama lengkap"
-                disabled={savingProfile}
-              />
+          <div className="space-y-6 py-4">
+            <div className="bg-amber-50/30 rounded-lg p-4 border border-amber-100">
+              <h4 className="font-semibold text-sm text-amber-700 mb-3 flex items-center gap-2">
+                <UserCircle className="h-4 w-4" />
+                Data Diri
+              </h4>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="admin-nama"
+                    value={editForm.nama}
+                    onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                    placeholder="Masukkan nama lengkap"
+                    disabled={savingProfile}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-email">Email <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="admin-email"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    placeholder="admin@example.com"
+                    disabled={savingProfile}
+                  />
+                </div>
+              </div>
             </div>
             
-            {/* 🔥 EMAIL */}
-            <div className="space-y-2">
-              <Label htmlFor="admin-email">Email <span className="text-red-500">*</span></Label>
-              <Input
-                id="admin-email"
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                placeholder="admin@example.com"
-                disabled={savingProfile}
-              />
-            </div>
-            
-            {/* 🔥 PISAH DENGAN BORDER */}
-            <div className="border-t pt-4">
-              <h4 className="font-semibold text-sm text-gray-700 mb-3">Ganti Password (Opsional)</h4>
-              <p className="text-xs text-gray-500 mb-3">
+            <div className="bg-blue-50/30 rounded-lg p-4 border border-blue-100">
+              <h4 className="font-semibold text-sm text-blue-700 mb-3 flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Ganti Password
+              </h4>
+              
+              <p className="text-xs text-gray-500 mb-4">
                 Isi hanya jika ingin mengganti password. Semua field password harus diisi.
               </p>
               
-              {/* 🔥 PASSWORD SAAT INI */}
-              <div className="space-y-2 mb-3">
-                <Label htmlFor="current-password">Password Saat Ini</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  placeholder="Masukkan password saat ini"
-                  value={editForm.current_password}
-                  onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              {/* 🔥 PASSWORD BARU */}
-              <div className="space-y-2 mb-3">
-                <Label htmlFor="new-password">Password Baru</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Masukkan password baru (min 6 karakter)"
-                  value={editForm.new_password}
-                  onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              {/* 🔥 KONFIRMASI PASSWORD BARU */}
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Konfirmasi password baru"
-                  value={editForm.new_password_confirmation}
-                  onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              {/* 🔥 INFORMASI TAMBAHAN */}
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  💡 <strong>Tips:</strong> Password baru minimal 6 karakter. 
-                  Password akan tetap sama jika tidak diisi.
-                </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Password Saat Ini</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    placeholder="Masukkan password saat ini"
+                    value={editForm.current_password}
+                    onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Password Baru</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Masukkan password baru (min 6 karakter)"
+                    value={editForm.new_password}
+                    onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Konfirmasi password baru"
+                    value={editForm.new_password_confirmation}
+                    onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                <div className="p-3 bg-blue-100/50 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-700 flex items-start gap-2">
+                    <span className="text-base">💡</span>
+                    <span>
+                      <strong>Tips:</strong> Password baru minimal 6 karakter. 
+                      Password akan tetap sama jika tidak diisi.
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="flex gap-3">
+          <DialogFooter className="flex gap-3 pt-2 border-t">
             <Button 
               variant="outline" 
               onClick={() => {
-                // 🔥 Reset form password
                 setEditForm({
                   ...editForm,
                   current_password: '',

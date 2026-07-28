@@ -1,4 +1,4 @@
-// src/pages/Customer.tsx - FULL CODE LENGKAP
+// src/pages/Customer.tsx - FULL CODE RESPONSIVE MOBILE
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -44,7 +44,10 @@ import {
   Edit,
   Save,
   XCircle,
-  Copy
+  Copy,
+  Lock,
+  ChevronRight,
+  Clock as ClockIcon
 } from 'lucide-react';
 
 interface UserData {
@@ -123,7 +126,6 @@ const Customer = () => {
 
   // ============ FUNGSI PAYMENT SETTINGS ============
   
-  // Fetch payment settings dari API
   const fetchPaymentSettings = async (cabangId: string = '1') => {
     try {
       const response = await axiosInstance.get('/payment-settings/public', {
@@ -139,7 +141,6 @@ const Customer = () => {
           qr_code: response.data.data.qr_code || null
         });
       } else {
-        // Fallback kosong
         setPaymentSettings({
           bank_bca: '',
           bank_mandiri: '',
@@ -150,7 +151,6 @@ const Customer = () => {
       }
     } catch (error) {
       console.error('Error fetching payment settings:', error);
-      // Fallback kosong jika API error
       setPaymentSettings({
         bank_bca: '',
         bank_mandiri: '',
@@ -161,7 +161,6 @@ const Customer = () => {
     }
   };
 
-  // Mendapatkan daftar bank yang memiliki nomor rekening
   const getBankAccounts = () => {
     const banks = [
       { bank: 'BCA', accountNumber: paymentSettings.bank_bca, accountName: 'Seniman Barbershop' },
@@ -172,7 +171,6 @@ const Customer = () => {
     return banks.filter(bank => bank.accountNumber && bank.accountNumber.trim() !== '');
   };
 
-  // Mendapatkan URL QR Code
   const getQrImageUrl = (qrCode: string | null) => {
     if (!qrCode) return null;
     if (qrCode.startsWith('http')) return qrCode;
@@ -185,7 +183,6 @@ const Customer = () => {
     checkAuthAndLoadData();
   }, []);
 
-  // Fetch payment settings ketika dialog pembayaran dibuka
   useEffect(() => {
     if (showPaymentDialog && selectedReservation?.cabang_id) {
       fetchPaymentSettings(selectedReservation.cabang_id.toString());
@@ -194,9 +191,16 @@ const Customer = () => {
 
   const checkAuthAndLoadData = async () => {
     const userStr = localStorage.getItem('user');
+    const token = localStorage.getItem('auth_token');
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     
-    if (!userStr || !isLoggedIn) {
+    console.log('🔍 Auth check:', { 
+      hasUser: !!userStr, 
+      hasToken: !!token, 
+      isLoggedIn 
+    });
+    
+    if (!userStr || !token || !isLoggedIn) {
       toast({
         title: "Akses Ditolak",
         description: "Silakan login terlebih dahulu",
@@ -243,18 +247,33 @@ const Customer = () => {
   const fetchReservations = async () => {
     try {
       const userStr = localStorage.getItem('user');
-      if (!userStr) return;
+      if (!userStr) {
+        console.log('⚠️ No user data found');
+        return;
+      }
       
       const user = JSON.parse(userStr);
       const pelangganId = user.id_pelanggan;
       
-      console.log('Fetching reservations for:', pelangganId);
+      console.log('🔍 Fetching reservations for pelanggan_id:', pelangganId);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.log('⚠️ No auth token found');
+        toast({
+          title: "Session Expired",
+          description: "Silakan login kembali",
+          variant: "destructive",
+        });
+        navigate('/login');
+        return;
+      }
       
       const response = await axiosInstance.get('/reservasi/pelanggan', {
         params: { pelanggan_id: pelangganId }
       });
       
-      console.log('Response:', response.data);
+      console.log('✅ Response:', response.data);
       
       let reservationsData = [];
       if (response.data && response.data.data) {
@@ -264,55 +283,36 @@ const Customer = () => {
       }
       
       setReservations(reservationsData);
-      console.log('Reservations loaded:', reservationsData.length);
+      console.log('📋 Reservations loaded:', reservationsData.length);
       
     } catch (error: any) {
-      console.error('Error fetching reservations:', error);
-      // Fallback ke mock data untuk testing
-      const mockData: ReservationData[] = [
-        {
-          id_reservasi: 1,
-          kode_reservasi: 'RES-001',
-          pelanggan_id: 1,
-          cabang_id: 1,
-          nama_cabang: 'Seniman Barbershop Rungkut',
-          cabang_alamat: 'Jl. Rungkut Mapan No. 123',
-          layanan_id: 1,
-          nama_layanan: 'Potong Rambut Klasik',
-          durasi: '30 menit',
-          total_harga: 40000,
-          tanggal: '2024-06-20',
-          waktu: '14:00',
-          status: 'pending',
-          metode_pembayaran: 'cash',
-          catatan: 'Potong agak pendek',
-          created_at: new Date().toISOString()
-        },
-        {
-          id_reservasi: 2,
-          kode_reservasi: 'RES-002',
-          pelanggan_id: 1,
-          cabang_id: 1,
-          nama_cabang: 'Seniman Barbershop Rungkut',
-          cabang_alamat: 'Jl. Rungkut Mapan No. 123',
-          layanan_id: 2,
-          nama_layanan: 'Rapikan Jenggot',
-          durasi: '20 menit',
-          total_harga: 20000,
-          tanggal: '2024-06-15',
-          waktu: '11:00',
-          status: 'paid',
-          metode_pembayaran: 'qris',
-          catatan: '',
-          created_at: new Date().toISOString()
-        }
-      ];
-      setReservations(mockData);
+      console.error('❌ Error fetching reservations:', error);
+      
+      if (error.response?.status === 401) {
+        console.log('🔴 401 Unauthorized - Token expired');
+        toast({
+          title: "Session Expired",
+          description: "Silakan login kembali",
+          variant: "destructive",
+        });
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('isLoggedIn');
+        navigate('/login');
+        return;
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Gagal Memuat Data",
+        description: error.response?.data?.message || "Terjadi kesalahan, silakan coba lagi",
+      });
+      
+      setReservations([]);
     }
   };
 
   const handleUpdateProfile = async () => {
-    // VALIDASI NAMA
     if (!editForm.nama || !editForm.nama.trim()) {
       toast({
         variant: "destructive",
@@ -322,7 +322,6 @@ const Customer = () => {
       return;
     }
 
-    // VALIDASI EMAIL
     if (!editForm.email || !editForm.email.trim()) {
       toast({
         variant: "destructive",
@@ -332,7 +331,6 @@ const Customer = () => {
       return;
     }
 
-    // VALIDASI FORMAT EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editForm.email)) {
       toast({
@@ -343,7 +341,6 @@ const Customer = () => {
       return;
     }
 
-    // VALIDASI NO HP
     if (!editForm.no_hp || !editForm.no_hp.trim()) {
       toast({
         variant: "destructive",
@@ -353,7 +350,6 @@ const Customer = () => {
       return;
     }
 
-    // VALIDASI PASSWORD (jika ada yang diisi)
     const isPasswordFilled = editForm.current_password || editForm.new_password || editForm.new_password_confirmation;
     
     if (isPasswordFilled) {
@@ -420,7 +416,6 @@ const Customer = () => {
       const user = JSON.parse(userStr);
       const pelangganId = user.id_pelanggan;
 
-      // BUAT PAYLOAD
       const payload: any = {
         nama: editForm.nama.trim(),
         email: editForm.email.trim(),
@@ -428,7 +423,6 @@ const Customer = () => {
         alamat: editForm.alamat || '',
       };
 
-      // Jika ada password baru, kirim juga
       if (editForm.new_password) {
         payload.current_password = editForm.current_password;
         payload.new_password = editForm.new_password;
@@ -437,13 +431,11 @@ const Customer = () => {
 
       console.log('Sending update profile payload:', payload);
 
-      // KIRIM KE API
       const response = await axiosInstance.put(`/pelanggan/${pelangganId}`, payload);
 
       console.log('Update response:', response.data);
 
       if (response.data.success) {
-        // UPDATE LOCAL STORAGE
         const updatedUser = {
           ...user,
           nama: editForm.nama.trim(),
@@ -458,7 +450,6 @@ const Customer = () => {
         
         setUserData(updatedUser);
         
-        // RESET FORM PASSWORD
         setEditForm({
           ...editForm,
           current_password: '',
@@ -516,7 +507,6 @@ const Customer = () => {
   const handleConfirmPayment = async () => {
     if (!selectedReservation) return;
 
-    // Validasi upload bukti untuk metode non-tunai
     if (selectedReservation.metode_pembayaran !== 'cash' && !paymentProof) {
       toast({ 
         variant: "destructive", 
@@ -531,7 +521,6 @@ const Customer = () => {
     try {
       let buktiUrl = null;
 
-      // Upload bukti pembayaran jika ada
       if (paymentProof) {
         const formData = new FormData();
         formData.append('bukti_pembayaran', paymentProof);
@@ -547,29 +536,29 @@ const Customer = () => {
         console.log('Bukti URL:', buktiUrl);
       }
 
-      // Kirim konfirmasi pembayaran ke API
       const payload: any = {};
       if (buktiUrl) {
         payload.bukti_pembayaran = buktiUrl;
       }
 
       console.log('Confirming payment with payload:', payload);
-      await axiosInstance.put(`/reservasi/${selectedReservation.id_reservasi}/konfirmasi-pembayaran`, payload);
+      const response = await axiosInstance.put(`/reservasi/${selectedReservation.id_reservasi}/konfirmasi-pembayaran`, payload);
 
-      // Update state lokal
+      console.log('Confirm payment response:', response.data);
+
       setReservations(prev => prev.map(res => 
         res.id_reservasi === selectedReservation.id_reservasi 
           ? { 
               ...res, 
-              status: 'paid',
+              status: 'pending',
               bukti_pembayaran: buktiUrl || res.bukti_pembayaran
             }
           : res
       ));
 
       toast({
-        title: "Pembayaran Berhasil! 🎉",
-        description: "Pembayaran Anda telah dikonfirmasi. Terima kasih!",
+        title: "Bukti Pembayaran Terkirim! 📤",
+        description: "Bukti pembayaran Anda telah terkirim. Silakan tunggu konfirmasi dari admin.",
       });
 
       setShowPaymentDialog(false);
@@ -579,9 +568,23 @@ const Customer = () => {
     } catch (error: any) {
       console.error('Payment error:', error);
       console.error('Error response:', error.response?.data);
+      
+      if (error.response?.status === 401) {
+        toast({
+          variant: "destructive",
+          title: "Session Expired",
+          description: "Silakan login kembali",
+        });
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('isLoggedIn');
+        navigate('/login');
+        return;
+      }
+      
       toast({
         variant: "destructive",
-        title: "Pembayaran Gagal",
+        title: "Gagal Mengirim Bukti",
         description: error.response?.data?.message || "Terjadi kesalahan, silakan coba lagi",
       });
     } finally {
@@ -680,7 +683,6 @@ const Customer = () => {
     });
   };
 
-  // 🔥 STATUS BADGE - Menampilkan "Menunggu Konfirmasi" untuk semua pending
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'paid':
@@ -717,7 +719,6 @@ const Customer = () => {
     }
   };
 
-  // 🔥 FUNGSI CETAK NOTA
   const handlePrintNota = () => {
     printNota();
   };
@@ -783,53 +784,58 @@ const Customer = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="container mx-auto px-4">
+      <div className="min-h-screen bg-gray-50 py-4 md:py-8">
+        <div className="container mx-auto px-3 md:px-4">
           {/* Header */}
-          <div className="mb-8 flex justify-between items-center">
+          <div className="mb-4 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Barber Account</h1>
-              <p className="text-gray-600">Kelola reservasi dan lihat riwayat pemesanan Anda</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">My Barber Account</h1>
+              <p className="text-sm text-gray-600 hidden sm:block">Kelola reservasi dan lihat riwayat pemesanan Anda</p>
             </div>
-            <Button variant="outline" onClick={handleLogout} className="text-red-600 border-red-600 hover:bg-red-50">
+            <Button variant="outline" onClick={handleLogout} className="text-red-600 border-red-600 hover:bg-red-50 w-full sm:w-auto text-sm">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
           </div>
 
-          {/* Profile Banner */}
-          <Card className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-amber-600 rounded-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-white" />
+          {/* Profile Banner - Responsive */}
+          <Card className="mb-4 md:mb-8 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center space-x-3 md:space-x-4 w-full sm:w-auto">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-6 w-6 md:h-8 md:w-8 text-white" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{userData?.nama || 'Customer'}</h2>
-                    <div className="flex flex-wrap gap-3 mt-1">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Mail className="h-4 w-4 mr-1" />
-                        {userData?.email || '-'}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg md:text-2xl font-bold text-gray-900 truncate">{userData?.nama || 'Customer'}</h2>
+                    <div className="flex flex-wrap gap-2 mt-0.5">
+                      <div className="flex items-center text-xs md:text-sm text-gray-600">
+                        <Mail className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
+                        <span className="truncate max-w-[120px] sm:max-w-none">{userData?.email || '-'}</span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Phone className="h-4 w-4 mr-1" />
+                      <div className="flex items-center text-xs md:text-sm text-gray-600">
+                        <Phone className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
                         {userData?.no_hp || '-'}
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={() => setShowEditProfileDialog(true)}
-                    className="border-amber-600 text-amber-600 hover:bg-amber-50"
+                    className="border-amber-600 text-amber-600 hover:bg-amber-50 flex-1 sm:flex-none text-xs md:text-sm"
                   >
-                    <Edit className="h-4 w-4 mr-2" />
+                    <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                     Edit Profil
                   </Button>
-                  <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => navigate('/booking')}>
-                    <Scissors className="h-4 w-4 mr-2" />
+                  <Button 
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-700 flex-1 sm:flex-none text-xs md:text-sm" 
+                    onClick={() => navigate('/booking')}
+                  >
+                    <Scissors className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                     Reservasi Baru
                   </Button>
                 </div>
@@ -837,75 +843,91 @@ const Customer = () => {
             </CardContent>
           </Card>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Reservasi Mendatang</CardTitle>
-                <CalendarDays className="h-4 w-4 text-amber-600" />
+          {/* Stats Cards - Responsive Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-6 mb-4 md:mb-8">
+            <Card className="p-3 md:p-6">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                <CardTitle className="text-xs md:text-sm font-medium">Reservasi Mendatang</CardTitle>
+                <CalendarDays className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{customerStats.upcomingReservations}</div>
-                <p className="text-xs text-muted-foreground">Menunggu konfirmasi</p>
+              <CardContent className="p-0 pt-1">
+                <div className="text-xl md:text-2xl font-bold">{customerStats.upcomingReservations}</div>
+                <p className="text-[10px] md:text-xs text-muted-foreground">Menunggu konfirmasi</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Riwayat Reservasi</CardTitle>
-                <History className="h-4 w-4 text-amber-600" />
+            <Card className="p-3 md:p-6">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                <CardTitle className="text-xs md:text-sm font-medium">Riwayat Reservasi</CardTitle>
+                <History className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{customerStats.completedReservations}</div>
-                <p className="text-xs text-muted-foreground">Reservasi yang sudah selesai</p>
+              <CardContent className="p-0 pt-1">
+                <div className="text-xl md:text-2xl font-bold">{customerStats.completedReservations}</div>
+                <p className="text-[10px] md:text-xs text-muted-foreground">Reservasi selesai</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Belanja</CardTitle>
-                <Receipt className="h-4 w-4 text-amber-600" />
+            <Card className="p-3 md:p-6">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                <CardTitle className="text-xs md:text-sm font-medium">Total Belanja</CardTitle>
+                <Receipt className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatRupiah(customerStats.totalSpent)}</div>
-                <p className="text-xs text-muted-foreground">Sepanjang menjadi member</p>
+              <CardContent className="p-0 pt-1">
+                <div className="text-sm md:text-2xl font-bold truncate">{formatRupiah(customerStats.totalSpent)}</div>
+                <p className="text-[10px] md:text-xs text-muted-foreground">Sepanjang member</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Layanan Favorit</CardTitle>
-                <Star className="h-4 w-4 text-amber-600" />
+            <Card className="p-3 md:p-6">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 p-0">
+                <CardTitle className="text-xs md:text-sm font-medium">Layanan Favorit</CardTitle>
+                <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold text-amber-600 truncate">{customerStats.favoriteService}</div>
-                <p className="text-xs text-muted-foreground">Paling sering dipesan</p>
+              <CardContent className="p-0 pt-1">
+                <div className="text-sm md:text-xl font-bold text-amber-600 truncate">{customerStats.favoriteService}</div>
+                <p className="text-[10px] md:text-xs text-muted-foreground">Paling sering dipesan</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Reservations Section */}
           <Card>
-            <CardHeader>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <CardHeader className="p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <CardTitle>Reservasi Saya</CardTitle>
-                  <CardDescription>Lihat semua reservasi yang sudah Anda pesan</CardDescription>
+                  <CardTitle className="text-lg md:text-xl">Reservasi Saya</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">Lihat semua reservasi yang sudah Anda pesan</CardDescription>
                 </div>
-                <div className="relative w-full md:w-64">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input 
                     placeholder="Cari reservasi..." 
-                    className="pl-9"
+                    className="pl-9 text-sm h-9 md:h-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="reservations">Semua Reservasi</TabsTrigger>
-                  <TabsTrigger value="upcoming">Menunggu Konfirmasi</TabsTrigger>
-                  <TabsTrigger value="history">Riwayat</TabsTrigger>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                {/* Tabs - Scrollable di mobile */}
+                <TabsList className="flex w-full overflow-x-auto gap-1 bg-gray-100 p-1 rounded-lg md:grid md:grid-cols-3">
+                  <TabsTrigger 
+                    value="reservations" 
+                    className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white"
+                  >
+                    Semua
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="upcoming" 
+                    className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white"
+                  >
+                    Menunggu
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="history" 
+                    className="flex-1 whitespace-nowrap text-xs md:text-sm py-1.5 md:py-2 data-[state=active]:bg-white"
+                  >
+                    Riwayat
+                  </TabsTrigger>
                 </TabsList>
 
                 <ReservationsTable 
@@ -917,7 +939,6 @@ const Customer = () => {
                   }}
                   onPayNow={(res) => {
                     console.log('Pay now clicked:', res);
-                    // 🔥 Cek apakah metode pembayaran Tunai
                     if (res.metode_pembayaran === 'cash') {
                       toast({
                         title: "Informasi",
@@ -953,7 +974,7 @@ const Customer = () => {
         }
         setShowEditProfileDialog(open);
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Edit Profil</DialogTitle>
             <DialogDescription>
@@ -961,104 +982,130 @@ const Customer = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
-              <Input
-                id="edit-nama"
-                value={editForm.nama}
-                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
-                placeholder="Masukkan nama lengkap"
-                disabled={savingProfile}
-              />
+          <div className="space-y-6 py-4">
+            <div className="bg-amber-50/30 rounded-lg p-4 border border-amber-100">
+              <h4 className="font-semibold text-sm text-amber-700 mb-3 flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Data Diri
+              </h4>
+              
+              <div className="space-y-4">
+                {/* NAMA LENGKAP */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-nama"
+                    value={editForm.nama}
+                    onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                    placeholder="Masukkan nama lengkap"
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* EMAIL */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    placeholder="email@example.com"
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* NOMOR TELEPON */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Nomor Telepon <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-phone"
+                    value={editForm.no_hp}
+                    onChange={(e) => setEditForm({ ...editForm, no_hp: e.target.value })}
+                    placeholder="08123456789"
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* ALAMAT */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Alamat</Label>
+                  <Input
+                    id="edit-address"
+                    value={editForm.alamat || ''}
+                    onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
+                    placeholder="Jl. Contoh No. 123"
+                    disabled={savingProfile}
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email <span className="text-red-500">*</span></Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                placeholder="email@example.com"
-                disabled={savingProfile}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Nomor Telepon <span className="text-red-500">*</span></Label>
-              <Input
-                id="edit-phone"
-                value={editForm.no_hp}
-                onChange={(e) => setEditForm({ ...editForm, no_hp: e.target.value })}
-                placeholder="08123456789"
-                disabled={savingProfile}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-address">Alamat</Label>
-              <Input
-                id="edit-address"
-                value={editForm.alamat || ''}
-                onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
-                placeholder="Jl. Contoh No. 123"
-                disabled={savingProfile}
-              />
-            </div>
-            
-            <div className="border-t pt-4">
-              <h4 className="font-semibold text-sm text-gray-700 mb-2">Ganti Password (Opsional)</h4>
-              <p className="text-xs text-gray-500 mb-3">
+            <div className="bg-blue-50/30 rounded-lg p-4 border border-blue-100">
+              <h4 className="font-semibold text-sm text-blue-700 mb-3 flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Ganti Password
+              </h4>
+              
+              <p className="text-xs text-gray-500 mb-4">
                 Isi hanya jika ingin mengganti password. Semua field password harus diisi.
               </p>
               
-              <div className="space-y-2 mb-3">
-                <Label htmlFor="current-password">Password Saat Ini</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  placeholder="Masukkan password saat ini"
-                  value={editForm.current_password}
-                  onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              <div className="space-y-2 mb-3">
-                <Label htmlFor="new-password">Password Baru</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Masukkan password baru (min 6 karakter)"
-                  value={editForm.new_password}
-                  onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Konfirmasi password baru"
-                  value={editForm.new_password_confirmation}
-                  onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-              
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  💡 <strong>Tips:</strong> Password baru minimal 6 karakter. 
-                  Password akan tetap sama jika tidak diisi.
-                </p>
+              <div className="space-y-4">
+                {/* PASSWORD SAAT INI */}
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Password Saat Ini</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    placeholder="Masukkan password saat ini"
+                    value={editForm.current_password}
+                    onChange={(e) => setEditForm({ ...editForm, current_password: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* PASSWORD BARU */}
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Password Baru</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Masukkan password baru (min 6 karakter)"
+                    value={editForm.new_password}
+                    onChange={(e) => setEditForm({ ...editForm, new_password: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* KONFIRMASI PASSWORD BARU */}
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Konfirmasi password baru"
+                    value={editForm.new_password_confirmation}
+                    onChange={(e) => setEditForm({ ...editForm, new_password_confirmation: e.target.value })}
+                    disabled={savingProfile}
+                  />
+                </div>
+                
+                {/* INFORMASI TAMBAHAN */}
+                <div className="p-3 bg-blue-100/50 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-700 flex items-start gap-2">
+                    <span className="text-base">💡</span>
+                    <span>
+                      <strong>Tips:</strong> Password baru minimal 6 karakter. 
+                      Password akan tetap sama jika tidak diisi.
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
+            
           </div>
 
-          <DialogFooter className="flex gap-3">
+          <DialogFooter className="flex gap-3 pt-2 border-t">
             <Button 
               variant="outline" 
               onClick={() => {
@@ -1087,7 +1134,7 @@ const Customer = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Detail Dialog - DENGAN TOMBOL CETAK NOTA */}
+      {/* Detail Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1096,7 +1143,6 @@ const Customer = () => {
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-6">
-              {/* 🔥 KOMPONEN NOTA (HIDDEN) - Untuk dicetak */}
               <div className="hidden">
                 <NotaPemesanan 
                   reservation={{
@@ -1115,68 +1161,61 @@ const Customer = () => {
                 />
               </div>
               
-              <div className="flex justify-between items-start p-4 bg-gray-50 rounded-lg">
+              <div className="flex flex-col sm:flex-row justify-between items-start p-3 md:p-4 bg-gray-50 rounded-lg gap-3">
                 <div>
-                  <p className="text-sm text-gray-600">Kode Reservasi</p>
-                  <p className="font-mono font-bold">{selectedReservation.kode_reservasi}</p>
+                  <p className="text-xs text-gray-600">Kode Reservasi</p>
+                  <p className="font-mono font-bold text-sm md:text-base">{selectedReservation.kode_reservasi}</p>
                 </div>
-                {selectedReservation.pelanggan_nama && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Nama Customer</p>
-                    <p className="font-medium text-gray-900 flex items-center gap-2">
-                      <User className="h-4 w-4 text-amber-600" />
-                      {selectedReservation.pelanggan_nama}
-                    </p>
-                  </div>
-                )}
                 <div>
-                  <p className="text-sm text-gray-600">Status</p>
+                  <p className="text-xs text-gray-600">Status</p>
                   {getStatusBadge(selectedReservation.status)}
                 </div>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-3">Detail Layanan</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><p className="text-sm text-gray-600">Layanan</p><p className="font-medium">{selectedReservation.nama_layanan}</p></div>
-                  <div><p className="text-sm text-gray-600">Durasi</p><p className="font-medium">{selectedReservation.durasi}</p></div>
-                  <div><p className="text-sm text-gray-600">Tanggal</p><p className="font-medium">{formatDate(selectedReservation.tanggal)}</p></div>
-                  <div><p className="text-sm text-gray-600">Waktu</p><p className="font-medium">{selectedReservation.waktu}</p></div>
-                  <div><p className="text-sm text-gray-600">Cabang</p><p className="font-medium">{selectedReservation.nama_cabang}</p></div>
-                  <div><p className="text-sm text-gray-600">Total</p><p className="font-bold text-amber-600">{formatRupiah(selectedReservation.total_harga)}</p></div>
+                <h3 className="font-semibold text-sm md:text-base mb-3">Detail Layanan</h3>
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                  <div><p className="text-xs text-gray-600">Layanan</p><p className="font-medium text-sm md:text-base">{selectedReservation.nama_layanan}</p></div>
+                  <div><p className="text-xs text-gray-600">Durasi</p><p className="font-medium text-sm md:text-base">{selectedReservation.durasi}</p></div>
+                  <div><p className="text-xs text-gray-600">Tanggal</p><p className="font-medium text-sm md:text-base">{formatDate(selectedReservation.tanggal)}</p></div>
+                  <div><p className="text-xs text-gray-600">Waktu</p><p className="font-medium text-sm md:text-base">{selectedReservation.waktu}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-600">Cabang</p><p className="font-medium text-sm md:text-base">{selectedReservation.nama_cabang}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-600">Total</p><p className="font-bold text-amber-600 text-base md:text-lg">{formatRupiah(selectedReservation.total_harga)}</p></div>
                 </div>
               </div>
 
               {selectedReservation.catatan && (
                 <div>
-                  <h3 className="font-semibold mb-2">Catatan</h3>
+                  <h3 className="font-semibold text-sm md:text-base mb-2">Catatan</h3>
                   <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{selectedReservation.catatan}</p>
                 </div>
               )}
               
-              <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
-                {/* 🔥 TOMBOL CETAK NOTA */}
+              <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
                 <Button 
                   variant="outline" 
+                  size="sm"
                   onClick={handlePrintNota}
                   className="border-amber-600 text-amber-600 hover:bg-amber-50"
                 >
-                  <Printer className="h-4 w-4 mr-2" />
+                  <Printer className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                   Cetak Nota
                 </Button>
-                <Button variant="outline" onClick={() => setShowDetailDialog(false)}>Tutup</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowDetailDialog(false)}>Tutup</Button>
                 {selectedReservation.status === 'pending' && (
                   <>
                     {selectedReservation.metode_pembayaran === 'cash' ? (
                       <Button 
                         disabled
+                        size="sm"
                         className="bg-gray-400 text-white cursor-not-allowed"
                       >
-                        <Clock className="h-4 w-4 mr-2" />
+                        <Clock className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Menunggu Konfirmasi
                       </Button>
                     ) : (
                       <Button 
+                        size="sm"
                         onClick={() => { 
                           setShowDetailDialog(false); 
                           setShowPaymentDialog(true); 
@@ -1187,7 +1226,8 @@ const Customer = () => {
                       </Button>
                     )}
                     <Button 
-                      variant="destructive" 
+                      variant="destructive"
+                      size="sm"
                       onClick={() => handleCancelReservation(selectedReservation.id_reservasi)}
                     >
                       Batalkan
@@ -1212,7 +1252,6 @@ const Customer = () => {
           
           {selectedReservation && (
             <div className="space-y-6 py-4">
-              {/* Detail Pembayaran */}
               <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Kode Reservasi:</span>
@@ -1275,10 +1314,10 @@ const Customer = () => {
                       
                       <div className="bg-yellow-50 p-2 rounded mt-2">
                         <p className="text-xs text-yellow-700">
-                          ⚠️ Transfer sesuai dengan total yang harus dibayar: <strong>{formatRupiah(selectedReservation.total_harga)}</strong>
+                          ⚠️ Transfer sesuai dengan total: <strong>{formatRupiah(selectedReservation.total_harga)}</strong>
                         </p>
                         <p className="text-xs text-yellow-700 mt-1">
-                          Cantumkan kode reservasi: <strong className="font-mono">{selectedReservation.kode_reservasi}</strong> sebagai referensi
+                          Kode: <strong className="font-mono">{selectedReservation.kode_reservasi}</strong>
                         </p>
                       </div>
                     </div>
@@ -1302,26 +1341,23 @@ const Customer = () => {
                         <img 
                           src={getQrImageUrl(paymentSettings.qr_code)} 
                           alt="QRIS Code"
-                          className="w-56 h-56 object-contain bg-white rounded-xl shadow-lg border-2 border-orange-200 p-4"
+                          className="w-48 h-48 md:w-56 md:h-56 object-contain bg-white rounded-xl shadow-lg border-2 border-orange-200 p-4"
                         />
                       </div>
-                      <p className="text-sm text-orange-600">
-                        Scan menggunakan aplikasi e-wallet atau m-banking Anda
-                      </p>
+                      <p className="text-sm text-orange-600">Scan menggunakan e-wallet atau m-banking</p>
                       <div className="bg-yellow-50 p-2 rounded mt-2">
                         <p className="text-xs text-yellow-700">
                           💰 Nominal: <strong>{formatRupiah(selectedReservation.total_harga)}</strong>
                         </p>
                         <p className="text-xs text-yellow-700 mt-1">
-                          Kode Reservasi: <strong className="font-mono">{selectedReservation.kode_reservasi}</strong>
+                          Kode: <strong className="font-mono">{selectedReservation.kode_reservasi}</strong>
                         </p>
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-4">
                       <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">QR Code akan segera diupdate oleh admin</p>
-                      <p className="text-xs text-gray-400 mt-2">Silakan pilih metode pembayaran lain atau hubungi customer service</p>
+                      <p className="text-sm text-gray-500">QR Code akan segera diupdate</p>
                     </div>
                   )}
                 </div>
@@ -1334,20 +1370,18 @@ const Customer = () => {
                     <Wallet className="h-5 w-5 text-green-600" />
                     <p className="font-semibold text-green-800">Pembayaran Tunai</p>
                   </div>
-                  <p className="text-center text-green-700">
-                    Silakan bayar tunai saat Anda tiba di tempat kami
-                  </p>
+                  <p className="text-center text-green-700">Bayar tunai saat tiba di tempat</p>
                   <div className="mt-3 p-2 bg-white rounded text-center">
-                    <p className="text-sm text-gray-600">Total yang harus dibayar:</p>
+                    <p className="text-sm text-gray-600">Total:</p>
                     <p className="text-xl font-bold text-green-600">{formatRupiah(selectedReservation.total_harga)}</p>
                   </div>
                   <p className="text-xs text-green-600 text-center mt-3">
-                    📍 {selectedReservation.nama_cabang} - {selectedReservation.cabang_alamat}
+                    📍 {selectedReservation.nama_cabang}
                   </p>
                 </div>
               )}
 
-              {/* Upload Bukti Pembayaran untuk non-tunai */}
+              {/* Upload Bukti Pembayaran */}
               {(selectedReservation.metode_pembayaran === 'transfer' || selectedReservation.metode_pembayaran === 'qris') && (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                   <Label className="block mb-2 font-medium">Upload Bukti Pembayaran</Label>
@@ -1365,8 +1399,8 @@ const Customer = () => {
                         className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
                       >
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">Klik untuk upload bukti transfer/QRIS</p>
-                        <p className="text-xs text-gray-400">Format: JPG, PNG (Max 5MB)</p>
+                        <p className="text-sm text-gray-500">Klik untuk upload bukti</p>
+                        <p className="text-xs text-gray-400">JPG, PNG (Max 5MB)</p>
                       </label>
                     </div>
                   ) : (
@@ -1387,7 +1421,6 @@ const Customer = () => {
                 </div>
               )}
 
-              {/* Tombol Konfirmasi */}
               <Button 
                 onClick={handleConfirmPayment}
                 disabled={uploading}
@@ -1404,7 +1437,7 @@ const Customer = () => {
               </Button>
 
               <p className="text-xs text-center text-gray-400">
-                Dengan mengkonfirmasi pembayaran, Anda menyetujui semua syarat dan ketentuan yang berlaku
+                Dengan mengkonfirmasi pembayaran, Anda menyetujui syarat dan ketentuan
               </p>
             </div>
           )}
@@ -1416,7 +1449,10 @@ const Customer = () => {
   );
 };
 
-// Reservations Table Component
+// ============================================================
+// RESERVATIONS TABLE - Responsive Mobile
+// ============================================================
+
 const ReservationsTable = ({ 
   reservations, 
   onViewDetails, 
@@ -1440,11 +1476,11 @@ const ReservationsTable = ({
 
   if (reservations.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-8 md:py-12">
         <CalendarDays className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak ada reservasi</h3>
-        <p className="text-gray-500">Belum ada reservasi yang ditemukan</p>
-        <Button className="mt-4 bg-amber-600" onClick={() => window.location.href = '/booking'}>
+        <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Tidak ada reservasi</h3>
+        <p className="text-sm text-gray-500">Belum ada reservasi yang ditemukan</p>
+        <Button className="mt-4 bg-amber-600 text-sm" onClick={() => window.location.href = '/booking'}>
           Buat Reservasi Sekarang
         </Button>
       </div>
@@ -1452,63 +1488,126 @@ const ReservationsTable = ({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Kode</TableHead>
-            <TableHead>Tanggal</TableHead>
-            <TableHead>Layanan</TableHead>
-            <TableHead>Metode</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Aksi</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {reservations.map((reservation) => (
-            <TableRow key={reservation.id_reservasi}>
-              <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
-              <TableCell>{formatDate(reservation.tanggal)}</TableCell>
-              <TableCell className="font-medium">{reservation.nama_layanan}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  {getPaymentMethodIcon(reservation.metode_pembayaran)}
-                  <span className="text-sm">{getPaymentMethodName(reservation.metode_pembayaran)}</span>
+    <div>
+      {/* 🔥 MOBILE VERSION - Card List */}
+      <div className="block md:hidden space-y-3">
+        {reservations.map((reservation) => (
+          <Card key={reservation.id_reservasi} className="p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="space-y-3">
+              {/* Header: Kode & Status */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs text-gray-500">Kode Reservasi</p>
+                  <p className="font-mono text-sm font-bold">{reservation.kode_reservasi}</p>
                 </div>
-              </TableCell>
-              <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
-              <TableCell>{getStatusBadge(reservation.status)}</TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
+                <div>{getStatusBadge(reservation.status)}</div>
+              </div>
+              
+              {/* Info Layanan */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Layanan</p>
+                  <p className="font-medium">{reservation.nama_layanan}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Tanggal</p>
+                  <p className="font-medium">{formatDate(reservation.tanggal)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Waktu</p>
+                  <p className="font-medium">{reservation.waktu}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Metode</p>
+                  <div className="flex items-center gap-1">
+                    {getPaymentMethodIcon(reservation.metode_pembayaran)}
+                    <span className="text-sm">{getPaymentMethodName(reservation.metode_pembayaran)}</span>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="font-bold text-amber-600">{formatRupiah(reservation.total_harga)}</p>
+                </div>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => onViewDetails(reservation)}
+                >
+                  Detail
+                </Button>
+                {reservation.status === 'pending' && (
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => {
-                      console.log('Detail button clicked for:', reservation.id_reservasi);
-                      onViewDetails(reservation);
-                    }}
+                    size="sm"
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-xs"
+                    onClick={() => onPayNow(reservation)}
                   >
-                    Detail
+                    Bayar
                   </Button>
-                  {reservation.status === 'pending' && (
-                    <Button 
-                      size="sm" 
-                      className="bg-amber-600 hover:bg-amber-700"
-                      onClick={() => {
-                        console.log('Pay button clicked for:', reservation.id_reservasi);
-                        onPayNow(reservation);
-                      }}
-                    >
-                      Bayar
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* 🔥 DESKTOP VERSION - Table */}
+      <div className="hidden md:block overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Kode</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Layanan</TableHead>
+              <TableHead>Metode</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Aksi</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {reservations.map((reservation) => (
+              <TableRow key={reservation.id_reservasi}>
+                <TableCell className="font-mono text-sm">{reservation.kode_reservasi}</TableCell>
+                <TableCell>{formatDate(reservation.tanggal)}</TableCell>
+                <TableCell className="font-medium">{reservation.nama_layanan}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {getPaymentMethodIcon(reservation.metode_pembayaran)}
+                    <span className="text-sm">{getPaymentMethodName(reservation.metode_pembayaran)}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{formatRupiah(reservation.total_harga)}</TableCell>
+                <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => onViewDetails(reservation)}
+                    >
+                      Detail
+                    </Button>
+                    {reservation.status === 'pending' && (
+                      <Button 
+                        size="sm" 
+                        className="bg-amber-600 hover:bg-amber-700"
+                        onClick={() => onPayNow(reservation)}
+                      >
+                        Bayar
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
