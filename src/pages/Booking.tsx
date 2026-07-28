@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle, MapPin, Store, Phone, Clock as ClockIcon } from 'lucide-react';
+import { CalendarIcon, Wallet, Landmark, QrCode, ChevronRight, CheckCircle2, Upload, X, Clock, AlertCircle, MapPin, Store, Phone, Clock as ClockIcon, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -76,7 +76,8 @@ const Booking = () => {
   const { currentBranch } = useBranch();
   
   const [date, setDate] = useState<Date | undefined>(undefined);
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  //  MULTI SELECT - array of service IDs
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
@@ -100,7 +101,7 @@ const Booking = () => {
     qr_code: null
   });
   
-  // FORM DATA - SATU FIELD NAMA
+  // FORM DATA
   const [formData, setFormData] = useState({
     nama: '',
     email: '',
@@ -140,7 +141,7 @@ const Booking = () => {
     { bank: 'BRI', accountNumber: paymentSettings.bank_bri, accountName: 'Seniman Barbershop' }
   ].filter(bank => bank.accountNumber);
 
-  // FUNGSI UNTUK LOAD DATA USER YANG LOGIN - SATU FIELD NAMA
+  // FUNGSI UNTUK LOAD DATA USER YANG LOGIN
   const loadUserData = () => {
     const userStr = localStorage.getItem('user');
     console.log('User data from localStorage:', userStr);
@@ -256,7 +257,7 @@ const Booking = () => {
   };
 
   const getSelectedServiceData = () => {
-    return services.find(s => s.id_layanan.toString() === selectedService);
+    return services.find(s => s.id_layanan.toString() === selectedServices[0]?.toString());
   };
 
   const getSelectedPaymentMethod = () => {
@@ -325,13 +326,79 @@ const Booking = () => {
     return `http://127.0.0.1:8000/storage/${qrCode}`;
   };
 
+  //  MULTI SELECT FUNCTIONS
+  const toggleService = (serviceId: number) => {
+    setSelectedServices(prev => 
+      prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const getTotalPrice = () => {
+    let total = 0;
+    for (const id of selectedServices) {
+      const service = services.find(s => s.id_layanan === id);
+      if (service && service.harga) {
+        // 🔥 KONVERSI KE NUMBER (parseFloat)
+        const price = typeof service.harga === 'string' 
+          ? parseFloat(service.harga) 
+          : service.harga;
+        total += price;
+      }
+    }
+    return total;
+  };
+
+  const getTotalDuration = () => {
+    let total = 0;
+    for (const id of selectedServices) {
+      const service = services.find(s => s.id_layanan === id);
+      if (service && service.durasi) {
+        // 🔥 KONVERSI KE NUMBER
+        const duration = typeof service.durasi === 'string' 
+          ? parseInt(service.durasi, 10) 
+          : service.durasi;
+        total += duration;
+      }
+    }
+    return total;
+  };
+
+  const getSelectedServiceNames = () => {
+    return selectedServices.map(id => {
+      const service = services.find(s => s.id_layanan === id);
+      return service?.nama_layanan || '';
+    }).filter(Boolean);
+  };
+
+  const getSelectedServiceDetails = () => {
+    const result: ServiceData[] = [];
+    for (const id of selectedServices) {
+      const service = services.find(s => s.id_layanan === id);
+      if (service) {
+        const fixedService = {
+          ...service,
+          harga: typeof service.harga === 'string' ? parseFloat(service.harga) : service.harga,
+          durasi: typeof service.durasi === 'string' ? parseInt(service.durasi, 10) : service.durasi,
+        };
+        result.push(fixedService);
+      }
+    }
+    return result;
+  };
+
+  const removeService = (serviceId: number) => {
+    setSelectedServices(prev => prev.filter(id => id !== serviceId));
+  };
+
   // Cek apakah metode pembayaran adalah Tunai
   const isCashPayment = selectedPayment === 'cash';
 
   // Validasi lengkap sebelum submit
   const validateBookingData = () => {
-    if (!selectedService) {
-      toast({ variant: "destructive", title: "Kesalahan", description: "Silakan pilih layanan terlebih dahulu." });
+    if (selectedServices.length === 0) {
+      toast({ variant: "destructive", title: "Kesalahan", description: "Silakan pilih minimal 1 layanan." });
       return false;
     }
     if (!date || !selectedTime) {
@@ -370,8 +437,8 @@ const Booking = () => {
       return;
     }
 
-    const selectedServiceData = getSelectedServiceData();
-    if (!selectedServiceData) return;
+    const totalHarga = getTotalPrice();
+    const totalDurasi = getTotalDuration();
 
     const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
 
@@ -381,10 +448,11 @@ const Booking = () => {
       const response = await axiosInstance.post('/reservasi', {
         pelanggan_id: user.id_pelanggan,
         cabang_id: cabangId,
-        layanan_id: parseInt(selectedService),
+        layanan_ids: selectedServices,
         slot_id: selectedSlotId,
         tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
-        total_harga: selectedServiceData.harga,
+        total_harga: totalHarga,
+        total_durasi: totalDurasi,
         metode_pembayaran: 'cash',
         catatan: formData.notes,
         nama: formData.nama,
@@ -398,10 +466,10 @@ const Booking = () => {
           id_reservasi: response.data.id_reservasi || '',
           kode_reservasi: response.data.kode_reservasi || 'RES-001',
           id_pelanggan: user.id_pelanggan,
-          id_layanan: parseInt(selectedService),
+          id_layanan: selectedServices[0] || 0,
           id_slot: selectedSlotId || 0,
           tanggal: format(date!, 'yyyy-MM-dd'),
-          total_harga: selectedServiceData.harga,
+          total_harga: totalHarga,
           metode_pembayaran: 'cash',
           status_pembayaran: 'pending',
           catatan: formData.notes,
@@ -456,8 +524,8 @@ const Booking = () => {
       return;
     }
 
-    const selectedServiceData = getSelectedServiceData();
-    if (!selectedServiceData) return;
+    const totalHarga = getTotalPrice();
+    const totalDurasi = getTotalDuration();
 
     const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
 
@@ -467,10 +535,11 @@ const Booking = () => {
       const response = await axiosInstance.post('/reservasi', {
         pelanggan_id: user.id_pelanggan,
         cabang_id: cabangId,
-        layanan_id: parseInt(selectedService),
+        layanan_ids: selectedServices,
         slot_id: selectedSlotId,
         tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
-        total_harga: selectedServiceData.harga,
+        total_harga: totalHarga,
+        total_durasi: totalDurasi,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
         nama: formData.nama,
@@ -566,8 +635,8 @@ const Booking = () => {
       return;
     }
 
-    const selectedServiceData = getSelectedServiceData();
-    if (!selectedServiceData) return;
+    const totalHarga = getTotalPrice();
+    const totalDurasi = getTotalDuration();
 
     const cabangId = currentBranch?.id ? parseInt(currentBranch.id) : 1;
 
@@ -589,10 +658,11 @@ const Booking = () => {
       const response = await axiosInstance.post('/reservasi', {
         pelanggan_id: user.id_pelanggan,
         cabang_id: cabangId,
-        layanan_id: parseInt(selectedService),
+        layanan_ids: selectedServices,
         slot_id: selectedSlotId,
         tanggal_reservasi: format(date!, 'yyyy-MM-dd'),
-        total_harga: selectedServiceData.harga,
+        total_harga: totalHarga,
+        total_durasi: totalDurasi,
         metode_pembayaran: selectedPayment,
         catatan: formData.notes,
         nama: formData.nama,
@@ -609,10 +679,10 @@ const Booking = () => {
           id_reservasi: response.data.id_reservasi || '',
           kode_reservasi: response.data.kode_reservasi || 'RES-001',
           id_pelanggan: user.id_pelanggan,
-          id_layanan: parseInt(selectedService),
+          id_layanan: selectedServices[0] || 0,
           id_slot: selectedSlotId || 0,
           tanggal: format(date!, 'yyyy-MM-dd'),
-          total_harga: selectedServiceData.harga,
+          total_harga: totalHarga,
           metode_pembayaran: selectedPayment || 'transfer',
           status_pembayaran: 'paid',
           catatan: formData.notes,
@@ -677,12 +747,12 @@ const Booking = () => {
   const selectedServiceData = getSelectedServiceData();
   const availableTimeSlots = getAvailableTimeSlots();
 
-  // 🔥 CEK PROGRESS UNTUK STEP INDICATOR
+  // CEK PROGRESS UNTUK STEP INDICATOR
   const isStepCompleted = (step: number) => {
-    if (step === 1) return !!selectedService;
-    if (step === 2) return !!(selectedService && date && selectedTime);
-    if (step === 3) return !!(selectedService && date && selectedTime && selectedPayment);
-    if (step === 4) return !!(selectedService && date && selectedTime && selectedPayment && formData.nama && formData.email && formData.phone);
+    if (step === 1) return selectedServices.length > 0;
+    if (step === 2) return !!(selectedServices.length > 0 && date && selectedTime);
+    if (step === 3) return !!(selectedServices.length > 0 && date && selectedTime && selectedPayment);
+    if (step === 4) return !!(selectedServices.length > 0 && date && selectedTime && selectedPayment && formData.nama && formData.email && formData.phone);
     return false;
   };
 
@@ -707,7 +777,7 @@ const Booking = () => {
             </div>
           </div>
 
-          {/* 🔥 PROGRESS STEPS - INDICATOR */}
+          {/* PROGRESS STEPS - INDICATOR */}
           <div className="max-w-4xl mx-auto mb-6 md:mb-10">
             <div className="flex justify-center">
               <div className="relative flex items-center w-full max-w-xs md:max-w-2xl">
@@ -719,10 +789,10 @@ const Booking = () => {
                 ].map((item, index) => {
                   const isCompleted = isStepCompleted(item.step);
                   const isActive = 
-                    (item.step === 1 && !selectedService) ||
-                    (item.step === 2 && selectedService && !date) ||
-                    (item.step === 3 && selectedService && date && !selectedPayment) ||
-                    (item.step === 4 && selectedService && date && selectedPayment);
+                    (item.step === 1 && selectedServices.length === 0) ||
+                    (item.step === 2 && selectedServices.length > 0 && !date) ||
+                    (item.step === 3 && selectedServices.length > 0 && date && !selectedPayment) ||
+                    (item.step === 4 && selectedServices.length > 0 && date && selectedPayment);
                   
                   return (
                     <React.Fragment key={index}>
@@ -760,27 +830,29 @@ const Booking = () => {
           {/* Single page - semua bagian ditampilkan sekaligus */}
           <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
 
-            {/* Bagian 1: Pilih Layanan */}
+            {/* Bagian 1: Pilih Layanan - MULTI SELECT */}
             <Card className={`w-full shadow-md border-2 transition-all duration-300 ${
-              !selectedService ? 'border-barber-gold/50' : 'border-gray-200'
+              selectedServices.length === 0 ? 'border-barber-gold/50' : 'border-gray-200'
             }`}>
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-barber-gold text-black text-xs md:text-sm font-bold">1</span>
                   <h2 className="text-lg md:text-2xl font-bold">Pilih Layanan</h2>
-                  {selectedService && (
+                  {selectedServices.length > 0 && (
                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 ml-2" />
                   )}
                 </div>
-                <p className="text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4">Pilih salah satu layanan di bawah ini</p>
+                <p className="text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4">
+                  Pilih satu atau lebih layanan di bawah ini (klik untuk memilih/batalkan)
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {services.map((service) => {
-                    const isSelected = selectedService === service.id_layanan.toString();
+                    const isSelected = selectedServices.includes(service.id_layanan);
                     return (
                       <button
                         type="button"
                         key={service.id_layanan}
-                        onClick={() => setSelectedService(service.id_layanan.toString())}
+                        onClick={() => toggleService(service.id_layanan)}
                         className={`text-left rounded-lg border-2 overflow-hidden transition-all duration-200 bg-white flex flex-col h-full ${
                           isSelected ? 'border-barber-gold shadow-md' : 'border-gray-200 hover:border-barber-gold/50'
                         }`}
@@ -818,28 +890,77 @@ const Booking = () => {
                     );
                   })}
                 </div>
+
+                {/*  RINGKASAN LAYANAN YANG DIPILIH */}
+                {selectedServices.length > 0 && (
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm font-semibold text-amber-800">
+                      ✅ {selectedServices.length} layanan dipilih:
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 text-xs"
+                      onClick={() => setSelectedServices([])}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Hapus Semua
+                    </Button>
+                  </div>
+                  <div className="space-y-1">
+                    {getSelectedServiceDetails().map((service, index) => {
+                      //  PASTIKAN service.harga DAN service.durasi ADA
+                      const harga = service?.harga || 0;
+                      const durasi = service?.durasi || 0;
+                      return (
+                        <div key={index} className="flex justify-between items-center text-sm py-1 border-b border-amber-100 last:border-0">
+                          <span className="text-gray-700">{service?.nama_layanan || 'Unknown'}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-amber-600 text-xs">{durasi} menit</span>
+                            <span className="text-amber-600">{formatRupiah(harga)}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeService(service.id_layanan)}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between font-bold">
+                    <span>Total:</span>
+                    <span className="text-barber-gold">
+                      {formatRupiah(getTotalPrice())} • {getTotalDuration()} menit
+                    </span>
+                  </div>
+                </div>
+              )}
               </CardContent>
             </Card>
 
             {/* Bagian 2: Pilih Tanggal & Waktu */}
             <Card className={`w-full shadow-md border-2 transition-all duration-300 ${
-              selectedService && !date ? 'border-barber-gold/50' : 
-              selectedService && date && selectedTime ? 'border-green-200' : 'border-gray-200'
+              selectedServices.length > 0 && !date ? 'border-barber-gold/50' : 
+              selectedServices.length > 0 && date && selectedTime ? 'border-green-200' : 'border-gray-200'
             }`}>
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-bold ${
-                    selectedService ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
+                    selectedServices.length > 0 ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
                   }`}>2</span>
-                  <h2 className={`text-lg md:text-2xl font-bold ${!selectedService ? 'text-gray-400' : ''}`}>Pilih Tanggal & Waktu</h2>
-                  {selectedService && date && selectedTime && (
+                  <h2 className={`text-lg md:text-2xl font-bold ${selectedServices.length === 0 ? 'text-gray-400' : ''}`}>Pilih Tanggal & Waktu</h2>
+                  {selectedServices.length > 0 && date && selectedTime && (
                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 ml-2" />
                   )}
                 </div>
-                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${!selectedService ? 'text-gray-300' : ''}`}>
-                  {!selectedService ? 'Pilih layanan terlebih dahulu' : 'Tentukan jadwal kedatangan Anda'}
+                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${selectedServices.length === 0 ? 'text-gray-300' : ''}`}>
+                  {selectedServices.length === 0 ? 'Pilih layanan terlebih dahulu' : 'Tentukan jadwal kedatangan Anda'}
                 </p>
-                <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 ${!selectedService ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 ${selectedServices.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div>
                     <Label className="block mb-2 text-sm md:text-base">Pilih Tanggal</Label>
                     <Popover>
@@ -899,15 +1020,15 @@ const Booking = () => {
                     )}
 
                     {/* Informasi waktu yang dipilih dengan estimasi selesai */}
-                    {selectedTime && selectedServiceData && (
+                    {selectedTime && getTotalDuration() > 0 && (
                       <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-xs md:text-sm text-amber-800">
                           <strong>Anda memilih:</strong> {selectedTime} 
                           <span className="mx-2">→</span> 
-                          {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
+                          {getEstimatedEndTime(selectedTime, getTotalDuration())}
                         </p>
                         <p className="text-xs text-amber-600 mt-1">
-                          💇 Layanan {selectedServiceData.nama_layanan} akan selesai dalam {selectedServiceData.durasi} menit
+                          💇 Total {getTotalDuration()} menit untuk {selectedServices.length} layanan
                         </p>
                       </div>
                     )}
@@ -918,23 +1039,23 @@ const Booking = () => {
 
             {/* Bagian 3: Pilih Metode Pembayaran */}
             <Card className={`w-full shadow-md border-2 transition-all duration-300 ${
-              selectedService && date && selectedTime && !selectedPayment ? 'border-barber-gold/50' : 
-              selectedService && date && selectedTime && selectedPayment ? 'border-green-200' : 'border-gray-200'
+              selectedServices.length > 0 && date && selectedTime && !selectedPayment ? 'border-barber-gold/50' : 
+              selectedServices.length > 0 && date && selectedTime && selectedPayment ? 'border-green-200' : 'border-gray-200'
             }`}>
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-bold ${
-                    selectedService && date && selectedTime ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
+                    selectedServices.length > 0 && date && selectedTime ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
                   }`}>3</span>
-                  <h2 className={`text-lg md:text-2xl font-bold ${!(selectedService && date && selectedTime) ? 'text-gray-400' : ''}`}>Pilih Metode Pembayaran</h2>
-                  {selectedService && date && selectedTime && selectedPayment && (
+                  <h2 className={`text-lg md:text-2xl font-bold ${!(selectedServices.length > 0 && date && selectedTime) ? 'text-gray-400' : ''}`}>Pilih Metode Pembayaran</h2>
+                  {selectedServices.length > 0 && date && selectedTime && selectedPayment && (
                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 ml-2" />
                   )}
                 </div>
-                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${!(selectedService && date && selectedTime) ? 'text-gray-300' : ''}`}>
-                  {!(selectedService && date && selectedTime) ? 'Pilih layanan, tanggal, dan waktu terlebih dahulu' : 'Pilih metode pembayaran yang Anda inginkan'}
+                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${!(selectedServices.length > 0 && date && selectedTime) ? 'text-gray-300' : ''}`}>
+                  {!(selectedServices.length > 0 && date && selectedTime) ? 'Pilih layanan, tanggal, dan waktu terlebih dahulu' : 'Pilih metode pembayaran yang Anda inginkan'}
                 </p>
-                <div className={`space-y-3 md:space-y-4 ${!(selectedService && date && selectedTime) ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`space-y-3 md:space-y-4 ${!(selectedServices.length > 0 && date && selectedTime) ? 'opacity-50 pointer-events-none' : ''}`}>
                   {paymentMethods.map((method) => {
                     const Icon = method.icon;
                     return (
@@ -968,25 +1089,25 @@ const Booking = () => {
 
             {/* Bagian 4: Konfirmasi Data & Booking */}
             <Card className={`w-full shadow-md border-2 transition-all duration-300 ${
-              selectedService && date && selectedTime && selectedPayment ? 'border-green-200' : 'border-gray-200'
+              selectedServices.length > 0 && date && selectedTime && selectedPayment ? 'border-green-200' : 'border-gray-200'
             }`}>
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-bold ${
-                    selectedService && date && selectedTime && selectedPayment ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
+                    selectedServices.length > 0 && date && selectedTime && selectedPayment ? 'bg-barber-gold text-black' : 'bg-gray-300 text-white'
                   }`}>4</span>
-                  <h2 className={`text-lg md:text-2xl font-bold ${!(selectedService && date && selectedTime && selectedPayment) ? 'text-gray-400' : ''}`}>Konfirmasi Data & Booking</h2>
-                  {selectedService && date && selectedTime && selectedPayment && formData.nama && formData.email && formData.phone && (
+                  <h2 className={`text-lg md:text-2xl font-bold ${!(selectedServices.length > 0 && date && selectedTime && selectedPayment) ? 'text-gray-400' : ''}`}>Konfirmasi Data & Booking</h2>
+                  {selectedServices.length > 0 && date && selectedTime && selectedPayment && formData.nama && formData.email && formData.phone && (
                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 ml-2" />
                   )}
                 </div>
-                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${!(selectedService && date && selectedTime && selectedPayment) ? 'text-gray-300' : ''}`}>
-                  {!(selectedService && date && selectedTime && selectedPayment) 
+                <p className={`text-xs md:text-sm text-gray-500 ml-8 md:ml-10 mb-4 ${!(selectedServices.length > 0 && date && selectedTime && selectedPayment) ? 'text-gray-300' : ''}`}>
+                  {!(selectedServices.length > 0 && date && selectedTime && selectedPayment) 
                     ? 'Lengkapi semua data sebelumnya' 
                     : 'Periksa kembali data Anda sebelum booking'}
                 </p>
                 
-                <div className={`${!(selectedService && date && selectedTime && selectedPayment) ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`${!(selectedServices.length > 0 && date && selectedTime && selectedPayment) ? 'opacity-50 pointer-events-none' : ''}`}>
                   {/* LAYOUT DUA KOLOM */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* KOLOM KIRI - Ringkasan Pemesanan & Lokasi */}
@@ -1000,24 +1121,21 @@ const Booking = () => {
                         <div className="space-y-2">
                           <div className="bg-white p-3 rounded-md shadow-sm">
                             <p className="text-xs md:text-sm text-gray-500">Layanan</p>
-                            <p className="font-medium text-sm md:text-base">{selectedServiceData?.nama_layanan || '-'}</p>
-                            <p className="text-xs text-gray-400">{selectedServiceData?.durasi || 0} menit</p>
-                            {selectedServiceData && selectedTime && (
-                              <p className="text-xs text-amber-600 mt-1">
-                                ⏱️ Estimasi selesai: {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
-                              </p>
-                            )}
+                            <p className="font-medium text-sm md:text-base">
+                              {getSelectedServiceNames().join(', ') || '-'}
+                            </p>
+                            <p className="text-xs text-gray-400">{getTotalDuration()} menit total</p>
                           </div>
                           <div className="bg-white p-3 rounded-md shadow-sm">
-                            <p className="text-xs md:text-sm text-gray-500">Harga Layanan</p>
-                            <p className="font-medium text-sm md:text-base text-barber-gold">{selectedServiceData ? formatRupiah(selectedServiceData.harga) : '-'}</p>
+                            <p className="text-xs md:text-sm text-gray-500">Total Harga</p>
+                            <p className="font-medium text-sm md:text-base text-barber-gold">{formatRupiah(getTotalPrice())}</p>
                           </div>
                           <div className="bg-white p-3 rounded-md shadow-sm">
                             <p className="text-xs md:text-sm text-gray-500">Tanggal & Waktu</p>
                             <p className="font-medium text-sm md:text-base">{date ? format(date, "d MMMM yyyy") : '-'} - {selectedTime || '-'}</p>
-                            {selectedServiceData && selectedTime && (
+                            {getTotalDuration() > 0 && selectedTime && (
                               <p className="text-xs text-gray-400 mt-1">
-                                Selesai sekitar: {getEstimatedEndTime(selectedTime, selectedServiceData.durasi)}
+                                Selesai sekitar: {getEstimatedEndTime(selectedTime, getTotalDuration())}
                               </p>
                             )}
                           </div>
@@ -1042,7 +1160,7 @@ const Booking = () => {
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-sm md:text-base">Total Pembayaran</span>
                             <span className="text-xl md:text-2xl font-bold text-barber-gold">
-                              {selectedServiceData ? formatRupiah(selectedServiceData.harga) : 'Rp 0'}
+                              {formatRupiah(getTotalPrice())}
                             </span>
                           </div>
                         </div>
@@ -1263,7 +1381,7 @@ const Booking = () => {
             <div className="bg-gray-50 p-3 md:p-4 rounded-lg space-y-2">
               <div className="flex justify-between text-sm md:text-base">
                 <span className="text-gray-600">Layanan:</span>
-                <span className="font-medium">{selectedServiceData?.nama_layanan}</span>
+                <span className="font-medium">{getSelectedServiceNames().join(', ')}</span>
               </div>
               <div className="flex justify-between text-sm md:text-base">
                 <span className="text-gray-600">Metode:</span>
@@ -1280,7 +1398,7 @@ const Booking = () => {
               </div>
               <div className="flex justify-between text-base md:text-lg font-bold pt-2 border-t">
                 <span>Total:</span>
-                <span className="text-barber-gold">{selectedServiceData && formatRupiah(selectedServiceData.harga)}</span>
+                <span className="text-barber-gold">{formatRupiah(getTotalPrice())}</span>
               </div>
             </div>
 
@@ -1322,7 +1440,7 @@ const Booking = () => {
                   )}
                 </div>
                 <p className="text-xs md:text-sm text-orange-600 mb-2">Scan menggunakan aplikasi e-wallet atau m-banking Anda</p>
-                <p className="text-xs text-orange-500">Nominal: {selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
+                <p className="text-xs text-orange-500">Nominal: {formatRupiah(getTotalPrice())}</p>
               </div>
             )}
 
@@ -1412,18 +1530,18 @@ const Booking = () => {
             
             {/* KOMPONEN NOTA (HIDDEN) */}
             <div className="hidden">
-              {selectedServiceData && date && (
+              {selectedServices.length > 0 && date && (
                 <NotaPemesanan 
                   reservation={{
                     kode_reservasi: savedReservation?.kode_reservasi || 'RES-001',
-                    nama_layanan: selectedServiceData.nama_layanan,
-                    total_harga: selectedServiceData.harga,
+                    nama_layanan: getSelectedServiceNames().join(', '),
+                    total_harga: getTotalPrice(),
                     tanggal: date.toISOString(),
                     waktu: selectedTime || '10:00',
                     nama_cabang: currentBranch?.name || 'Seniman Barbershop',
                     cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
                     pelanggan_nama: formData.nama,
-                    durasi: `${selectedServiceData.durasi} menit`,
+                    durasi: `${getTotalDuration()} menit`,
                     metode_pembayaran: selectedPayment || 'transfer',
                     status: 'paid'
                   }}
@@ -1478,18 +1596,18 @@ const Booking = () => {
             
             {/* KOMPONEN NOTA (HIDDEN) */}
             <div className="hidden">
-              {selectedServiceData && date && (
+              {selectedServices.length > 0 && date && (
                 <NotaPemesanan 
                   reservation={{
                     kode_reservasi: savedReservation?.kode_reservasi || 'RES-001',
-                    nama_layanan: selectedServiceData.nama_layanan,
-                    total_harga: selectedServiceData.harga,
+                    nama_layanan: getSelectedServiceNames().join(', '),
+                    total_harga: getTotalPrice(),
                     tanggal: date.toISOString(),
                     waktu: selectedTime || '10:00',
                     nama_cabang: currentBranch?.name || 'Seniman Barbershop',
                     cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
                     pelanggan_nama: formData.nama,
-                    durasi: `${selectedServiceData.durasi} menit`,
+                    durasi: `${getTotalDuration()} menit`,
                     metode_pembayaran: 'cash',
                     status: 'pending'
                   }}
@@ -1542,18 +1660,18 @@ const Booking = () => {
             
             {/* KOMPONEN NOTA (HIDDEN) */}
             <div className="hidden">
-              {selectedServiceData && date && savedReservation && (
+              {selectedServices.length > 0 && date && savedReservation && (
                 <NotaPemesanan 
                   reservation={{
                     kode_reservasi: savedReservation.kode_reservasi || 'RES-001',
-                    nama_layanan: selectedServiceData.nama_layanan,
-                    total_harga: selectedServiceData.harga,
+                    nama_layanan: getSelectedServiceNames().join(', '),
+                    total_harga: getTotalPrice(),
                     tanggal: date.toISOString(),
                     waktu: selectedTime || '10:00',
                     nama_cabang: currentBranch?.name || 'Seniman Barbershop',
                     cabang_alamat: currentBranch?.fullAddress || currentBranch?.address || '',
                     pelanggan_nama: formData.nama,
-                    durasi: `${selectedServiceData.durasi} menit`,
+                    durasi: `${getTotalDuration()} menit`,
                     metode_pembayaran: selectedPayment || 'cash',
                     status: 'pending'
                   }}
@@ -1569,8 +1687,9 @@ const Booking = () => {
                 <p className="text-xs md:text-sm font-semibold mb-1">Detail Reservasi:</p>
                 <div className="space-y-1 text-xs md:text-sm">
                   <p>📅 {date && formatDate(date)} - {selectedTime}</p>
-                  <p>💇 {selectedServiceData?.nama_layanan}</p>
-                  <p>💰 {selectedServiceData && formatRupiah(selectedServiceData.harga)}</p>
+                  <p>💇 {getSelectedServiceNames().join(', ')}</p>
+                  <p>💰 {formatRupiah(getTotalPrice())}</p>
+                  <p>⏱️ {getTotalDuration()} menit</p>
                 </div>
               </div>
             )}
